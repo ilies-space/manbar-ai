@@ -1,0 +1,12 @@
+# os
+.DS_Store
+Thumbs.db
+
+# internal notes / source material, not part of the app
+CLAUDE.md
+docs/
+*.pdf
+
+# tooling
+node_modules/
+*.log
