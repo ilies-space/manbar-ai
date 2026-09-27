@@ -48,19 +48,24 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeModal()
 function openSignModal(termKey) {
   const term = GLOSSARY[termKey];
   if (!term) return;
-  const pending = term.status !== "موثق";
+  const player = term.video
+    ? `<div class="sign-player has-video">
+         <video src="${term.video}" autoplay loop muted playsinline controls></video>
+       </div>
+       <p class="demo-tag">${term.demo}</p>`
+    : `<div class="sign-player">
+         <div class="sign-anim">
+           <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+         </div>
+         <span class="sign-hands">المقطع قيد التسجيل والتوثيق</span>
+       </div>`;
   openModal(`
     <h3>إشارة: ${termKey}</h3>
     <p class="sub">${term.def}</p>
-    <div class="sign-player">
-      <div class="sign-anim">
-        <svg viewBox="0 0 24 24" width="30" height="30" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-      </div>
-      <span class="sign-hands">${pending ? "المقطع قيد التسجيل والتوثيق" : "مقطع الإشارة — عرض تجريبي"}</span>
-    </div>
+    ${player}
     <div class="sign-meta">
-      <span><strong>المصدر:</strong> ${term.signer}</span>
-      <span><strong>الحالة:</strong> ${term.status}${pending ? " — يُعرض المصطلح دون مقطع حتى يُوثَّق" : " · رُوجع مع مجتمع الصم"}</span>
+      <span><strong>في المنتج:</strong> ${term.signer}</span>
+      <span><strong>الحالة:</strong> ${term.status}${term.video ? "" : " — يُعرض المصطلح دون مقطع حتى يُوثَّق"}</span>
       <span><strong>قاعدة منبر:</strong> الإشارات بشرية مسجّلة، لا يولّدها الذكاء الاصطناعي.</span>
     </div>
   `);

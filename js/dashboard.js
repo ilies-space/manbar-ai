@@ -58,12 +58,12 @@
   const allTerms = [...termKeys, "العمل الصالح"];
   $("#termsList").innerHTML = allTerms.map(k => {
     const g = GLOSSARY[k];
-    const ok = g && g.status === "موثق";
+    const ok = g && g.video;
     return `
     <li>
       <div><span class="t">${k}</span>
-      <span class="s">${ok ? g.signer : "يُعرض دون مقطع حتى يُوثَّق"}</span></div>
-      <span class="chip ${ok ? "chip-green" : "chip-amber"}">${ok ? "موثق" : "قيد التوثيق"}</span>
+      <span class="s">${ok ? "مقطع تجريبي — يُستبدل بمترجم معتمد" : "يُعرض دون مقطع حتى يُوثَّق"}</span></div>
+      <span class="chip ${ok ? "chip-green" : "chip-amber"}">${ok ? "مرتبط بمقطع" : "قيد التوثيق"}</span>
     </li>`;
   }).join("");
 

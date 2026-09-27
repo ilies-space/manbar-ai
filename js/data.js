@@ -93,21 +93,30 @@ KHUTBAH.duration = (() => {
   return last.t + last.d;
 })();
 
+// Demo clips are stand-ins from an open sign-language dictionary on Wikimedia
+// Commons (human-recorded, CC BY-SA). The real product replaces them with
+// Arabic Sign Language clips recorded by a certified interpreter.
 const GLOSSARY = {
   "التقوى": {
     def: "امتثال أوامر الله واجتناب نواهيه؛ أن تجعل بينك وبين ما يُغضب الله وقاية.",
-    signer: "أ. سارة الحربي — مترجمة معتمدة",
-    status: "موثق"
+    signer: "الهدف: مترجم معتمد بلغة الإشارة العربية",
+    video: "assets/video/sign-taqwa.webm",
+    demo: "مقطع مؤقت للعرض: Sayvhior · لغة إشارة نيجيرية · CC BY-SA 4.0 · ويكيميديا كومنز",
+    status: "مقطع تجريبي"
   },
   "الإحسان": {
     def: "أن تعبد الله كأنك تراه، وإتقان العمل ومعاملة الناس بالخير.",
-    signer: "أ. سارة الحربي — مترجمة معتمدة",
-    status: "موثق"
+    signer: "الهدف: مترجم معتمد بلغة الإشارة العربية",
+    video: "assets/video/sign-ihsan.webm",
+    demo: "مقطع مؤقت للعرض: Sayvhior · لغة إشارة نيجيرية · CC BY-SA 4.0 · ويكيميديا كومنز",
+    status: "مقطع تجريبي"
   },
   "التوكل": {
     def: "الاعتماد على الله في جلب المنافع ودفع المضار، مع الأخذ بالأسباب.",
-    signer: "أ. خالد العمري — مترجم معتمد",
-    status: "موثق"
+    signer: "الهدف: مترجم معتمد بلغة الإشارة العربية",
+    video: "assets/video/sign-tawakkul.webm",
+    demo: "مقطع مؤقت للعرض: Phil Unique Signature · لغة إشارة نيجيرية · CC BY-SA 4.0 · ويكيميديا كومنز",
+    status: "مقطع تجريبي"
   },
   "العمل الصالح": {
     def: "كل قولٍ أو فعلٍ يحبه الله ويرضاه.",
