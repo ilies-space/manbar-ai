@@ -15,9 +15,10 @@
   // pipeline steps
   $("#stepsRow").innerHTML = [
     ["رفع الخطبة", KHUTBAH.uploadedAt],
-    ["التيسير الآلي", `${segs.length} جملة خلال 40 ثانية`],
-    ["المراجعة الشرعية", `${approvedClean} أُقرّت · ${edited} عُدِّلت`],
-    ["جاهزة للعرض", "اكتملت قبل موعد الجمعة"]
+    ["الترجمة إلى الإشارة والتيسير", `${segs.length} جملة خلال دقائق`],
+    ["توليد فيديو المترجم الرقمي", "نُقلت الحركة من تسجيلات المترجم"],
+    ["اعتماد المختص والمترجم", `${approvedClean} أُقرّت · ${edited} عُدِّلت`],
+    ["جاهزة للبث", "تُزامَن مع الإمام لحظةً بلحظة"]
   ].map(([h, p], i) => `
     <div class="step-pill">
       <span class="dot">✓</span>
@@ -28,15 +29,15 @@
   $("#dashStats").innerHTML = [
     [segs.length, "جملة في الخطبة"],
     [verses.length, "آية مكتشفة ومطابقة مع المصحف"],
-    [termKeys.length, "مصطلحات مرتبطة بإشارات"],
-    [`${fidelity}٪`, "سلامة المعنى: أُقرّت دون تعديل"]
+    [termKeys.length, "مفردات إشارة في الخطبة"],
+    [`${fidelity}٪`, "دقة الإشارة: اعتمدها المترجم دون تعديل"]
   ].map(([v, l]) => `<div class="dstat"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
 
   // review table
   const chip = s => {
     if (s.type === "verse") return `<span class="chip chip-outline">آية — تُعرض كما هي</span>`;
-    if (s.review === "edited") return `<span class="chip chip-gold">عُدِّلت ثم أُقرّت</span>`;
-    return `<span class="chip chip-green">أُقرّت</span>`;
+    if (s.review === "edited") return `<span class="chip chip-gold">عُدِّلت ثم اعتُمدت</span>`;
+    return `<span class="chip chip-green">اعتُمدت نصاً وإشارةً</span>`;
   };
   $("#reviewTable tbody").innerHTML = segs.map(s => `
     <tr class="${s.type === "verse" ? "verse-row" : ""}">
@@ -72,19 +73,19 @@
   const pct = Math.round((NEXT_KHUTBAH.reviewed / NEXT_KHUTBAH.total) * 100);
   $("#nextProgress").style.width = `${pct}%`;
   $("#nextNote").textContent =
-    `المراجعة الشرعية: ${NEXT_KHUTBAH.reviewed} من ${NEXT_KHUTBAH.total} جملة (${pct}٪)`;
+    `اعتماد النص والإشارة: ${NEXT_KHUTBAH.reviewed} من ${NEXT_KHUTBAH.total} جملة (${pct}٪)`;
 
   // upload (mock)
   $("#btnUpload").addEventListener("click", () => {
     openModal(`
       <h3>رفع خطبة جديدة</h3>
-      <p class="sub">يرفع الإمام نص الخطبة قبل الجمعة، فيبدأ التيسير الآلي ثم المراجعة الشرعية.</p>
+      <p class="sub">يرفع الإمام نص الخطبة قبل الجمعة، فتُترجَم إلى الإشارة ويُولَّد فيديو المترجم الرقمي ثم يعتمده المختص والمترجم.</p>
       <div class="dropzone">اسحب ملف الخطبة هنا أو اضغط للاختيار<br /><small>(محاكاة — لن يُرفع ملف فعلي)</small></div>
       <button class="btn btn-primary" id="mockUploadBtn">رفع الخطبة</button>
     `);
     $("#mockUploadBtn").addEventListener("click", () => {
       closeModal();
-      showToast("استُلمت الخطبة وبدأ التيسير الآلي… ستصل للمراجعة الشرعية خلال دقائق");
+      showToast("استُلمت الخطبة وبدأت الترجمة إلى الإشارة… يصل الفيديو للاعتماد خلال دقائق");
     });
   });
 })();

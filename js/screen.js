@@ -1,4 +1,5 @@
-// mosque screen: playback engine that simulates the live khutbah pipeline
+// live khutbah screen: playback engine simulating the full pipeline —
+// digital sign interpreter + synced text + worshipper-language translation
 
 const ManbarScreen = (() => {
   const IMPROV_DELAY = 2.5; // extra latency in improvised mode (s)
@@ -15,8 +16,10 @@ const ManbarScreen = (() => {
     verseTafsir: $("#verseTafsir"),
     unrevBadge: $("#unrevBadge"),
     reviewNote: $("#reviewNote"),
-    termSide: $("#termSide"),
-    termClipName: $("#termClipName"),
+    signerVideo: $("#signerVideo"),
+    signerIdle: $("#signerIdle"),
+    signerFlag: $("#signerFlag"),
+    signerTag: $("#signerTag"),
     asrWords: $("#asrWords"),
     progressBar: $("#progressBar"),
     progressWrap: $("#progressWrap"),
@@ -28,6 +31,7 @@ const ManbarScreen = (() => {
     liveLabel: $("#liveLabel"),
     noiseOverlay: $("#noiseOverlay"),
     startOverlay: $("#startOverlay"),
+    mosqueList: $("#mosqueList"),
     endOverlay: $("#endOverlay"),
     endSummary: $("#endSummary"),
     btnPlay: $("#btnPlay"),
@@ -42,6 +46,7 @@ const ManbarScreen = (() => {
   let started = false;
   let speedIdx = 0;
   let mode = "prepared"; // prepared | improvised
+  let lang = "ar";       // ar | en
   let noiseUntil = -1;
   let shownSegId = null;
   let timer = null;
@@ -49,49 +54,59 @@ const ManbarScreen = (() => {
 
   const total = KHUTBAH.duration;
 
-  // segment lookup
   function segAt(time) {
     return KHUTBAH.segments.find(s => time >= s.t && time < s.t + s.d) || null;
   }
 
-  // rendering
+  // mosque picker inside the start overlay
+  els.mosqueList.innerHTML = MOSQUES.map(m => `
+    <button class="mosque-card ${m.live ? "live" : ""}" ${m.live ? "" : "disabled"}>
+      <span class="mosque-name">${m.name} <small>· ${m.city}</small></span>
+      ${m.live
+        ? `<span class="mosque-status on"><i></i> مباشر الآن — ${m.khutbah}</span>`
+        : `<span class="mosque-status">لا بث الآن</span>`}
+    </button>`).join("");
+  els.mosqueList.querySelector(".mosque-card.live").addEventListener("click", () => play());
+
+  /* ---- rendering ---- */
   function renderSegment(seg) {
     const prev = seg ? KHUTBAH.segments[KHUTBAH.segments.indexOf(seg) - 1] : null;
     els.prevLine.textContent = prev
-      ? (prev.type === "verse" ? prev.verse.source : plainSimple(prev.simple))
+      ? (lang === "en"
+          ? (prev.type === "verse" ? prev.verse.source : prev.en)
+          : (prev.type === "verse" ? prev.verse.source : plainSimple(prev.simple)))
       : "";
 
     if (!seg) {
-      els.currentLine.textContent = "بانتظار بدء الخطبة…";
+      els.currentLine.textContent = lang === "en" ? "Waiting for the khutbah…" : "بانتظار بدء الخطبة…";
       els.verseCard.hidden = true;
-      els.termSide.hidden = true;
       return;
     }
 
     const improvised = mode === "improvised";
     els.unrevBadge.hidden = !(improvised && seg.type !== "verse");
+    els.unrevBadge.textContent = lang === "en" ? "Machine translation — not yet reviewed" : "نص آلي غير مُراجَع";
     els.reviewNote.textContent = improvised
-      ? "وضع الخطبة المرتجلة: تحويل مباشر بتأخير بسيط، والآيات تُطابَق مع المصحف كما هي"
-      : "الجمل الميسّرة رُوجعت شرعياً قبل الجمعة ✓";
+      ? "وضع الخطبة المرتجلة: ترجمة مباشرة بتأخير بسيط، والآيات تُطابَق مع المصحف كما هي"
+      : "فيديو الإشارة والجمل الميسّرة اعتُمدا قبل الجمعة ✓";
 
     if (seg.type === "verse") {
-      els.currentLine.innerHTML = seg.original;
+      els.currentLine.innerHTML = lang === "en" ? seg.en : seg.original;
       els.verseText.textContent = seg.verse.text;
       els.verseSource.textContent = seg.verse.source + " · تُعرض كما هي من المصحف";
-      els.verseTafsir.textContent = seg.verse.tafsir;
+      els.verseTafsir.textContent = lang === "en" ? seg.verse.en : seg.verse.tafsir;
+      els.verseTafsir.classList.toggle("en-tafsir", lang === "en");
       els.verseCard.hidden = false;
     } else {
-      els.currentLine.innerHTML = renderSimple(seg.simple);
+      els.currentLine.innerHTML = lang === "en" ? seg.en : renderSimple(seg.simple);
       els.verseCard.hidden = true;
     }
 
-    if (seg.terms && seg.terms.length) {
-      els.termClipName.textContent = seg.terms[0];
-      $("#termClip").dataset.term = seg.terms[0];
-      els.termSide.hidden = false;
-    } else {
-      els.termSide.hidden = true;
+    // digital interpreter clip for this segment
+    if (seg.sign && !els.signerVideo.src.endsWith(seg.sign)) {
+      els.signerVideo.src = seg.sign;
     }
+    if (playing) els.signerVideo.play().catch(() => {});
   }
 
   function renderAsr(time) {
@@ -127,7 +142,7 @@ const ManbarScreen = (() => {
 
   function inNoise() { return t < noiseUntil; }
 
-  // engine
+  /* ---- engine ---- */
   function tick() {
     t += 0.1 * SPEEDS[speedIdx];
     if (t >= total) { finish(); return; }
@@ -135,6 +150,8 @@ const ManbarScreen = (() => {
     const noise = inNoise();
     els.noiseOverlay.hidden = !noise;
     els.waveform.classList.toggle("flat", noise);
+    stage.classList.toggle("noisy", noise);
+    if (noise) els.signerVideo.pause();
 
     if (!noise) {
       const effT = Math.max(0, t - (mode === "improvised" ? IMPROV_DELAY : 0));
@@ -147,6 +164,8 @@ const ManbarScreen = (() => {
           renderSegment(seg);
           els.currentLine.classList.remove("fading");
         }, 120);
+      } else if (els.signerVideo.paused && els.signerVideo.src) {
+        els.signerVideo.play().catch(() => {});
       }
     }
     renderAsr(t);
@@ -159,11 +178,13 @@ const ManbarScreen = (() => {
     started = true;
     els.startOverlay.hidden = true;
     els.endOverlay.hidden = true;
+    els.signerIdle.hidden = true;
     els.iconPlay.toggleAttribute("hidden", true);
     els.iconPause.toggleAttribute("hidden", false);
     els.liveDot.classList.remove("paused");
     els.waveform.classList.remove("idle");
     els.liveLabel.textContent = "مباشر";
+    els.signerVideo.play().catch(() => {});
     clearInterval(timer); timer = setInterval(tick, 100);
     clearInterval(syncTimer); syncTimer = setInterval(renderSync, 1000);
     renderSync();
@@ -176,6 +197,7 @@ const ManbarScreen = (() => {
     els.liveDot.classList.add("paused");
     els.waveform.classList.add("idle");
     els.liveLabel.textContent = label;
+    els.signerVideo.pause();
     clearInterval(timer);
     clearInterval(syncTimer);
   }
@@ -187,7 +209,7 @@ const ManbarScreen = (() => {
     const verses = KHUTBAH.segments.filter(s => s.type === "verse").length;
     const termCount = new Set(KHUTBAH.segments.flatMap(s => s.terms || [])).size;
     els.endSummary.textContent =
-      `${KHUTBAH.segments.length} جملة ميسّرة · ${verses} آيتان بنص المصحف · ${termCount} مصطلحات بإشاراتها الموثّقة`;
+      `ترجمة إشارية متزامنة كاملة · ${KHUTBAH.segments.length} جملة ميسّرة · ${verses} آيتان بنص المصحف · ${termCount} مفردات إشارة · ترجمة بلغة المصلي`;
     els.endOverlay.hidden = false;
   }
 
@@ -205,8 +227,7 @@ const ManbarScreen = (() => {
     play();
   }
 
-  // controls
-  $("#btnStart").addEventListener("click", play);
+  /* ---- controls ---- */
   $("#btnReplay").addEventListener("click", restart);
   $("#btnRestart").addEventListener("click", restart);
   els.btnPlay.addEventListener("click", () => {
@@ -229,15 +250,30 @@ const ManbarScreen = (() => {
       mode = btn.dataset.mode;
       stage.dataset.mode = mode;
       $$("#modeToggle button").forEach(b => b.classList.toggle("on", b === btn));
+      els.signerFlag.hidden = mode !== "improvised";
+      els.signerTag.textContent = mode === "improvised" ? "المترجم الرقمي · تجريبي" : "المترجم الرقمي";
       shownSegId = undefined; // force re-render
       showToast(mode === "improvised"
-        ? "الوضع الاحتياطي: نص آلي بتأخير بسيط ووسم واضح"
-        : "الوضع الأساسي: خطبة مجهّزة ومراجَعة مسبقاً");
+        ? "النسخة التجريبية: ترجمة مباشرة بتأخير، والكلمة خارج المفردات تُهجّى بالأصابع"
+        : "الوضع الأساسي: فيديو الإشارة مولَّد ومعتمد قبل الجمعة");
+    });
+  });
+
+  $$("#langToggle button:not([disabled])").forEach(btn => {
+    btn.addEventListener("click", () => {
+      lang = btn.dataset.lang;
+      stage.dataset.lang = lang;
+      $$("#langToggle button").forEach(b => b.classList.toggle("on", b === btn));
+      shownSegId = undefined; // force re-render in the new language
+      if (!playing && started) renderSegment(segAt(Math.max(0, t - (mode === "improvised" ? IMPROV_DELAY : 0))));
+      showToast(lang === "en"
+        ? "Worshipper language: live translation with approved verse translations"
+        : "لغة العرض: العربية الميسّرة");
     });
   });
 
   els.btnNoise.addEventListener("click", () => {
-    if (!playing) { showToast("شغّل المحاكاة أولاً"); return; }
+    if (!playing) { showToast("ابدأ البث أولاً"); return; }
     noiseUntil = t + 5;
     showToast("محاكاة: ضجيج وصدى في الصوت لمدة 5 ثوانٍ");
   });
