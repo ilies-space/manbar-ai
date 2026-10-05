@@ -6,6 +6,7 @@ import { SignPlayer } from "./player.js";
 import { Translator, normalizeAr } from "./translate.js";
 import { pickAdapter } from "./asr.js";
 import { runOnboarding, markLive, enterMobileMode, mobileFollowLoop } from "./flow.js";
+import { getSettings, saveSettings } from "./api.js";
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -50,7 +51,7 @@ async function boot() {
     : "ترجمة: قاموس محلي";
   setInterval(() => { $("#chipFps").textContent = `${stage.getFps()} fps`; }, 1200);
 
-  // waypoint probe: live.html?wp=0.2,0.05,0.35,forward   (right hand xyz+palm)
+  // waypoint probe: index.html?wp=0.2,0.05,0.35,forward   (right hand xyz+palm)
   // or both hands:  ?wp=0.2,0.05,0.35,up|-0.2,-0.1,0.3,in
   if (params.get("wp")) {
     const parse = seg => {
@@ -66,7 +67,7 @@ async function boot() {
     return;
   }
 
-  // debug freeze: live.html?sign=GLOSS_DUA&t=0.7
+  // debug freeze: index.html?sign=GLOSS_DUA&t=0.7
   if (params.get("sign")) {
     document.querySelector("#onboard")?.remove();
     player.freeze(params.get("sign"), parseFloat(params.get("t") || "0.6"));
@@ -315,10 +316,34 @@ async function boot() {
     $("#qrToggle").addEventListener("click", () => { $("#qrCard").hidden = !$("#qrCard").hidden; });
     $("#qrCard").addEventListener("click", () => { $("#qrCard").hidden = true; });
     const btnSetup = $("#btnSetup");
-    btnSetup.hidden = false;
+    btnSetup.hidden = true;
     btnSetup.addEventListener("click", () => location.reload());
   }
   $("#panelHandle")?.addEventListener("click", () => document.body.classList.toggle("panel-closed"));
+
+  // ---- settings dialog ----
+  const sOverlay = $("#settingsOverlay");
+  $("#btnSettings").addEventListener("click", () => {
+    const cfg = getSettings();
+    $("#setBase").value = cfg.base;
+    $("#setKey").value = cfg.key;
+    sOverlay.hidden = false;
+  });
+  $("#setCancel").addEventListener("click", () => { sOverlay.hidden = true; });
+  sOverlay.addEventListener("click", e => { if (e.target === sOverlay) sOverlay.hidden = true; });
+  $("#setKeyEye").addEventListener("click", () => {
+    const k = $("#setKey");
+    k.type = k.type === "password" ? "text" : "password";
+    $("#setKeyEye").textContent = k.type === "password" ? "إظهار" : "إخفاء";
+  });
+  $("#setSave").addEventListener("click", () => {
+    saveSettings({ base: $("#setBase").value, key: $("#setKey").value });
+    location.reload();
+  });
+  $("#setClear").addEventListener("click", () => {
+    saveSettings({ base: "", key: "" });
+    location.reload();
+  });
 }
 
 boot().catch(e => {

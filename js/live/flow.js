@@ -17,7 +17,7 @@ export async function buildMobileUrl(mosqueIdx) {
       if (h.ip) origin = `http://${h.ip}${location.port ? ":" + location.port : ""}`;
     } catch {}
   }
-  return `${origin}/live.html?view=mobile&m=${mosqueIdx}`;
+  return `${origin}/?view=mobile&m=${mosqueIdx}`;
 }
 
 export function renderQr(el, url, cells = 0) {

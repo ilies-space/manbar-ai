@@ -182,7 +182,7 @@ const server = http.createServer(async (req, res) => {
     if (req.method !== "GET" && req.method !== "HEAD") {
       return send(res, 405, { error: "method_not_allowed" }, { Allow: "GET, HEAD" });
     }
-    const publicFile = ["/index.html", "/live.html", "/assets/credits.json",
+    const publicFile = ["/index.html", "/live.html", "/about.html", "/assets/credits.json",
       "/assets/character/translator.glb", "/tools/pose-editor.html"].includes(p);
     const publicFolder = /^\/(css|js|assets\/(img|video|lexicon))\//.test(p);
     if ((!publicFile && !publicFolder) || p.split("/").some(part => part.startsWith("."))) {

@@ -41,7 +41,7 @@ after(async () => {
 });
 
 test('serves the application files', async () => {
-  for (const file of ['/', '/live.html', '/js/live/player.js', '/assets/lexicon/signs.json', '/tools/pose-editor.html']) {
+  for (const file of ['/', '/live.html', '/about.html', '/js/live/player.js', '/assets/lexicon/signs.json', '/tools/pose-editor.html']) {
     const response = await fetch(baseUrl + file);
     assert.equal(response.status, 200, file);
     await response.arrayBuffer();

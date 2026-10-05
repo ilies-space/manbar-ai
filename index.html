@@ -3,497 +3,204 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>منبر — خطبة الجمعة يفهمها الجميع</title>
-<meta name="description" content="منبر: مترجم إشارة رقمي بالذكاء الاصطناعي يترجم خطبة الجمعة مباشرةً إلى لغة الإشارة، ثم نصاً مكتوباً، ثم بلغة المصلي." />
+<title>منبر — المترجم الحي</title>
+<meta name="description" content="النموذج الحي: صوت الإمام يتحول إلى لغة إشارة تؤديها الشخصية الرقمية لحظياً." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 64'%3E%3Crect width='48' height='64' rx='8' fill='%23120C2E'/%3E%3Cpath d='M8 56 V28 C8 14 24 6 24 6 C24 6 40 14 40 28 V56' fill='none' stroke='%238B7CF6' stroke-width='2.5'/%3E%3Cline x1='24' y1='6' x2='24' y2='24' stroke='%238B7CF6' stroke-width='2'/%3E%3Ccircle cx='24' cy='30' r='5' fill='none' stroke='%238B7CF6' stroke-width='2'/%3E%3C/svg%3E" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/live.css" />
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
 </head>
-<body data-view="home">
+<body class="live-body panel-closed">
 
-<header class="topbar" id="topbar">
-  <a class="brand" href="#/">
+<header class="live-top">
+  <a class="brand" href="about.html" title="عن المشروع">
     <span class="brand-mark" aria-hidden="true">
-      <svg viewBox="0 0 48 64" fill="none" stroke="currentColor">
-        <path d="M6 60 V28 C6 13 24 5 24 5 C24 5 42 13 42 28 V60" stroke-width="2.5"/>
-        <line x1="24" y1="5" x2="24" y2="23" stroke-width="2"/>
-        <circle cx="24" cy="29" r="5" stroke-width="2"/>
-      </svg>
+      <svg viewBox="0 0 48 64" fill="none" stroke="currentColor"><path d="M6 60 V28 C6 13 24 5 24 5 C24 5 42 13 42 28 V60" stroke-width="2.5"/><line x1="24" y1="5" x2="24" y2="23" stroke-width="2"/><circle cx="24" cy="29" r="5" stroke-width="2"/></svg>
     </span>
     <span class="brand-name">منبر</span>
   </a>
-  <nav class="nav" id="nav">
-    <a href="#/" data-route="home">الرئيسية</a>
-    <a href="#/screen" data-route="screen">الخطبة المباشرة</a>
-    <a href="#/dashboard" data-route="dashboard">لوحة الإمام</a>
-    <a href="#/glossary" data-route="glossary">مفردات الإشارة</a>
-    <a href="#/impact" data-route="impact">الأثر والقياس</a>
-    <a href="live.html" class="nav-live">المترجم الحي ◂</a>
-  </nav>
-  <span class="sim-badge" title="جميع البيانات في هذا العرض تجريبية لأغراض المحاكاة">وضع المحاكاة</span>
-  <button class="nav-toggle" id="navToggle" aria-label="القائمة">
-    <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+  <h1>المترجم الحي <span class="muted">· نموذج تجريبي</span></h1>
+  <span class="pill gold" id="mosqueBadge" hidden></span>
+  <button class="pill linkish" id="btnSetup" hidden>تغيير الإعداد</button>
+  <button class="icon-btn" id="btnSettings" title="الإعدادات">
+    <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.56 1z"/></svg>
   </button>
+  <div class="live-chips">
+    <span class="pill" id="chipEngine">…</span>
+    <span class="pill" id="chipVocab">…</span>
+    <span class="pill" id="chipFingers">…</span>
+    <span class="pill" id="chipAsr">—</span>
+    <span class="pill" id="chipFps">—</span>
+  </div>
 </header>
 
-<main>
+<div class="ob-overlay" id="onboard">
+  <button id="obSkip" class="ob-skip" title="للتطوير فقط">تخطٍ ↵</button>
+  <div class="ob-card">
+    <div class="ob-head">
+      <span class="ob-logo">منبر</span>
+      <div class="ob-dots"><i class="ob-dot on"></i><i class="ob-dot"></i><i class="ob-dot"></i></div>
+    </div>
 
-<!-- landing -->
-<section class="view active" id="view-home">
+    <section class="ob-step">
+      <h2>اختر المسجد</h2>
+      <p class="ob-hint">تُبث خطبة الجمعة من مكبّر صوت المسجد إلى شاشة ركن الصم وجوالات المصلين.</p>
+      <div class="mosque-list" id="obMosques"></div>
+    </section>
 
-  <div class="hero">
-    <div class="container hero-grid">
-      <div class="hero-copy">
-        <p class="hero-kicker">تحدي الذكاء الاصطناعي في خدمة المحتوى الإسلامي 2026 · المسار الثاني</p>
-        <h1 class="hero-title">منبر</h1>
-        <p class="hero-sub">خطبة الجمعة يفهمها الجميع</p>
-        <p class="hero-desc">
-          مترجم إشارة رقمي بالذكاء الاصطناعي يترجم خطبة الجمعة مباشرةً إلى لغة الإشارة،
-          ثم نصاً مكتوباً، ثم بلغة المصلي.
-        </p>
-        <div class="hero-cta">
-          <a class="btn btn-primary btn-lg" href="#/screen">شاهد الخطبة المباشرة</a>
-          <a class="btn btn-ghost btn-lg" href="#/dashboard">لوحة الإمام</a>
+    <section class="ob-step" hidden>
+      <h2>خطبة الجمعة</h2>
+      <p class="ob-hint">يرفع الإمام نص الخطبة قبل الجمعة، فيترجمها نموذجنا إلى لغة الإشارة ويولّد أداء المترجم الرقمي، ثم يعتمدها المختص.</p>
+      <div id="obUploadUi">
+        <div class="dropzone" id="obDrop">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          اسحب ملف الخطبة وأفلته هنا
+          <small>.txt — أو <button type="button" class="dz-browse" id="obBrowse">اختر ملفاً</button></small>
         </div>
-        <p class="hero-platforms">قريباً على iOS و Android · ويعمل على شاشة المسجد ونسخة الويب</p>
-      </div>
-      <figure class="hero-figure">
-        <img src="assets/img/hero-mosque.jpg" alt="قاعة صلاة جامع القيروان الكبير وثرياته الذهبية" loading="eager" />
-        <figcaption>جامع عقبة بن نافع، القيروان</figcaption>
-      </figure>
-    </div>
-  </div>
-
-  <!-- Problem -->
-  <div class="section">
-    <div class="container split-media">
-      <div class="split-copy">
-        <p class="sec-kicker">المشكلة</p>
-        <h2 class="sec-title">الأصم يحضر صلاة الجمعة كل أسبوع<br />ويخرج منها دون أن يفهم الخطبة</h2>
-        <p class="sec-lead">لغته الأولى لغة الإشارة، والفصحى بمصطلحاتها الشرعية صعبة عليه، ولا يوجد مترجم إشارة في كل مسجد ولا في كل جمعة.</p>
-        <div class="stat-duo">
-          <div class="stat-block">
-            <p class="stat-over">أكثر من</p>
-            <p class="stat-big">430 مليون</p>
-            <p class="stat-under">شخص حول العالم لديهم فقدان سمع مُعيق · منظمة الصحة العالمية</p>
-          </div>
-          <div class="stat-block">
-            <p class="stat-over">وفي كل مسجد</p>
-            <p class="stat-big">كبار السن</p>
-            <p class="stat-under">ضعاف سمع ومصلّون في الصفوف الخلفية ومصلى النساء لا يصلهم الصوت بوضوح</p>
-          </div>
-        </div>
-      </div>
-      <figure class="split-figure">
-        <img src="assets/img/congregation.jpg" alt="مصلون جالسون أمام المنبر في جامع السليمانية" loading="lazy" />
-        <figcaption>أمام المنبر مباشرة… ومع ذلك لا تصلهم الخطبة</figcaption>
-      </figure>
-    </div>
-  </div>
-
-  <!-- Why written translation is not enough -->
-  <div class="section section-tint">
-    <div class="container">
-      <p class="sec-kicker">لماذا لا يكفي النص المكتوب؟</p>
-      <h2 class="sec-title">ثلاثة أسباب تجعل الخطبة لا تصل</h2>
-      <div class="cards-3">
-        <article class="card">
-          <h3>العربية لغة ثانية للأصم</h3>
-          <p>لغته الأولى لغة الإشارة، والفصحى بمصطلحاتها الشرعية صعبة عليه — النص وحده لا يكفي.</p>
-        </article>
-        <article class="card">
-          <h3>مصطلحات بلا إشارات موحّدة</h3>
-          <p>التقوى والإحسان والتوكل تُشار بطرق مختلفة، أو تُهجّى حرفاً حرفاً بالأصابع.</p>
-        </article>
-        <article class="card">
-          <h3>المترجمون قليلون</h3>
-          <p>لا يوجد مترجم إشارة في كل مسجد ولا في كل جمعة، والطلب أكبر بكثير من العدد المتاح.</p>
-        </article>
-      </div>
-    </div>
-  </div>
-
-  <!-- Solution -->
-  <div class="section section-dark">
-    <div class="container">
-      <p class="sec-kicker">الحل</p>
-      <h2 class="sec-title">ترجمة فورية لخطبة الجمعة — لغة الإشارة أولاً</h2>
-      <div class="cards-3">
-        <article class="card card-dark">
-          <h3>1 · مترجم إشارة رقمي</h3>
-          <p>شخصية واقعية بالذكاء الاصطناعي تترجم كلام الإمام إلى لغة الإشارة مباشرةً، في مقدمة الشاشة دائماً.</p>
-        </article>
-        <article class="card card-dark">
-          <h3>2 · الخطبة مكتوبة</h3>
-          <p>نص ميسّر يتقدم مع كلام الإمام، والآيات بنصها من المصحف.</p>
-        </article>
-        <article class="card card-dark">
-          <h3>3 · بلغة المصلي</h3>
-          <p>ترجمة فورية للخطبة إلى الإنجليزية والفرنسية والأردية وغيرها.</p>
-        </article>
-      </div>
-      <p class="beneficiaries"><strong>المستفيدون</strong> الصم · كبار السن ضعاف السمع · المسلمون غير العرب · الصفوف الخلفية ومصلى النساء</p>
-      <p class="beneficiaries"><strong>أين يعمل</strong> على جوال المصلي، وعلى شاشة المسجد في ركن الصم دون حاجة لإمساك الجوال</p>
-    </div>
-  </div>
-
-  <!-- quote band -->
-  <div class="quote-band">
-    <div class="container quote-grid">
-      <blockquote>
-        <p>«لأن الخطبة حقٌّ لكل من يحضرها»</p>
-        <footer>منبر يجعل الفهم متاحاً لمن لا يسمع، دون أن يشغل أحداً ممن حوله.</footer>
-      </blockquote>
-      <figure class="quote-figure">
-        <img src="assets/img/worshipper.jpg" alt="مصلٍّ كبير في السن مستنداً إلى منبر خشبي" loading="lazy" />
-      </figure>
-    </div>
-  </div>
-
-  <!-- How it works -->
-  <div class="section">
-    <div class="container">
-      <p class="sec-kicker">آلية العمل ودور الذكاء الاصطناعي</p>
-      <h2 class="sec-title">من صوت الإمام إلى مترجم إشارة رقمي في ثوانٍ</h2>
-      <div class="pipeline">
-        <div class="pipe-step"><span class="pipe-num">1</span><h4>صوت الإمام</h4><p>من جهاز صوت المسجد مباشرة</p></div>
-        <div class="pipe-arrow" aria-hidden="true">←</div>
-        <div class="pipe-step"><span class="pipe-num">2</span><h4>تحويل إلى نص</h4><p>نموذج تعرّف صوتي عربي</p></div>
-        <div class="pipe-arrow" aria-hidden="true">←</div>
-        <div class="pipe-step"><span class="pipe-num">3</span><h4>ترجمة إلى الإشارة</h4><p>خطة لتعلّم الربط بين النص والإشارات من بيانات Isharah</p></div>
-        <div class="pipe-arrow" aria-hidden="true">←</div>
-        <div class="pipe-step"><span class="pipe-num">4</span><h4>المترجم الرقمي</h4><p>توليد حركة الشخصية الرقمية</p></div>
-        <div class="pipe-arrow" aria-hidden="true">←</div>
-        <div class="pipe-step"><span class="pipe-num">5</span><h4>العرض</h4><p>جوال المصلي وشاشة المسجد</p></div>
-      </div>
-      <div class="cards-3 cards-top">
-        <article class="card">
-          <h4 class="card-h4">شخصية مبنية من مترجم حقيقي</h4>
-          <p>في المنتج المستهدف، تُنقل الإشارات من تسجيلات بشرية مسموح باستخدامها وتُراجع مع مترجم معتمد. حركات العرض الحالية تجريبية وغير معتمدة.</p>
-        </article>
-        <article class="card">
-          <h4 class="card-h4">خطبة مجهّزة: دقة أعلى</h4>
-          <p>يُترجم النص إلى الإشارة ويُولَّد الفيديو قبل الجمعة ويراجعه مختص، ثم يُزامَن مع الإمام لحظةً بلحظة.</p>
-        </article>
-        <article class="card">
-          <h4 class="card-h4">خطبة مرتجلة: نسخة تجريبية</h4>
-          <p>ترجمة مباشرة بتأخير ثوانٍ، والكلمة خارج المفردات تُهجّى بالأصابع وتظهر نصاً.</p>
-        </article>
-      </div>
-    </div>
-  </div>
-
-  <!-- Rules -->
-  <div class="section section-dark">
-    <div class="container">
-      <p class="sec-kicker">الموثوقية والجانب الشرعي</p>
-      <h2 class="sec-title">قواعد لا نتنازل عنها</h2>
-      <div class="cards-3">
-        <article class="card card-dark"><h3>الآيات لا تُعاد صياغتها</h3><p>تُطابَق مع المصحف، والمصادر من الحزمة العلمية للتحدي.</p></article>
-        <article class="card card-dark"><h3>كل تيسير يُفحص</h3><p>مقارنة آلية للمعنى، وما يُشك فيه يراجعه المختص.</p></article>
-        <article class="card card-dark"><h3>لا إشارة دون اعتماد</h3><p>كل إشارة من تسجيل مترجم معتمد، ولا يُعرض فيديو خطبة مجهّزة قبل أن يعتمده.</p></article>
-        <article class="card card-dark"><h3>الشفافية</h3><p>الترجمة الآلية غير المراجعة موسومة، والنص المكتوب يرافق الإشارة دائماً.</p></article>
-        <article class="card card-dark"><h3>لا انشغال أثناء الخطبة</h3><p>لا لمس ولا إشعارات، وتمرير تلقائي، وخيار شاشة المسجد.</p></article>
-        <article class="card card-dark"><h3>تكييف شرعي موثّق</h3><p>يراجعه مختص، بما فيه شكل المترجم الرقمي: واقعي أو مرسوم أو يدان فقط.</p></article>
-      </div>
-      <p class="beneficiaries"><strong>حالات الاختبار</strong> آية مقتبسة جزئياً · خروج الإمام عن النص · كلمة خارج مفردات الإشارة · ضجيج وصدى · كلام بالعامية</p>
-    </div>
-  </div>
-
-  <!-- Tech -->
-  <div class="section section-tint">
-    <div class="container">
-      <p class="sec-kicker">البنية التقنية</p>
-      <h2 class="sec-title">تطبيق واحد لـ iOS و Android، وخادم ذكي في الخلفية</h2>
-      <div class="cards-3">
-        <article class="card"><h3>المدخلات</h3><p>صوت الإمام من مكبر المسجد · نص الخطبة (اختياري) · تسجيلات إشارات من مترجم معتمد.</p></article>
-        <article class="card"><h3>الخادم</h3><p>تحويل الكلام إلى نص · الترجمة الفورية بترجمات آيات معتمدة · تتبع موضع الإمام · الترجمة إلى لغة الإشارة · توليد فيديو المترجم الرقمي · تحقق آلي بنموذج تعرّف الإشارة · بث لحظي.</p></article>
-        <article class="card"><h3>المخرجات</h3><p>تطبيق iOS · تطبيق Android · شاشة المسجد ونسخة الويب.</p></article>
-      </div>
-      <div class="tech-chips">
-        <span>Whisper / Chirp / ElevenLabs</span>
-        <span>Claude / Gemini</span>
-        <span>Motion Transfer</span>
-        <span>Supabase Realtime</span>
-        <span>Isharah · SSL Dataset</span>
-        <span>Tanzil</span>
-        <span>React Native · Expo</span>
-      </div>
-      <p class="tech-note">هذه البنية خطة تطوير: ندرس استخدام Isharah لتعلّم الربط بين النص والإشارات واستخراج الحركة، مع تحقق آلي ومراجعة مترجم معتمد. لم تُدمج البيانات أو يُدرّب نموذج عليها في هذه النسخة.</p>
-    </div>
-  </div>
-
-  <!-- Success metric teaser -->
-  <div class="section">
-    <div class="container center">
-      <p class="sec-kicker">معيار النجاح</p>
-      <h2 class="sec-title">يعالج منبر حرمان الصم من فهم خطبة الجمعة،<br />ويُقاس نجاحه بارتفاع فهمهم للخطبة مقارنةً بحضورها دونه</h2>
-      <a class="btn btn-primary" href="#/impact">شاهد الأثر والقياس</a>
-    </div>
-  </div>
-
-  <footer class="footer">
-    <div class="container footer-grid">
-      <div>
-        <p class="footer-brand">منبر — لأن الخطبة حق لكل من يحضرها</p>
-        <p class="footer-note">تحدي الذكاء الاصطناعي في خدمة المحتوى الإسلامي · 2026م</p>
-        <p class="footer-note">محمد زاوش — التصميم وتجربة المستخدم · الياس ولد منور — مبرمج أول، التطوير التقني</p>
-      </div>
-      <div class="footer-small">
-        <p class="footer-disclaimer">هذا عرض تجريبي (MVP): جميع البيانات والأرقام في الموقع محاكاة لأغراض العرض، ومقاطع الإشارة الحالية مؤقتة من قاموس مفتوح وتُستبدل بأداء المترجم الرقمي المبني من تسجيلات مترجم معتمد بلغة الإشارة العربية.</p>
-        <p class="footer-credits">الصور والمقاطع من ويكيميديا كومنز (CC BY-SA): Dennis G. Jarvis · Mustafa-trit20 · Adam Jones · ساندرا · Aisha Tanduk · Uprising Man — التفاصيل في ملف <span dir="ltr">assets/credits.json</span></p>
-      </div>
-    </div>
-  </footer>
-</section>
-
-<!-- live khutbah screen -->
-<section class="view" id="view-screen">
-  <div class="screen-stage" id="screenStage" data-fontsize="m" data-mode="prepared" data-lang="ar">
-
-    <div class="screen-top">
-      <div class="live-pill">
-        <span class="live-dot" id="liveDot"></span>
-        <span id="liveLabel">مباشر</span>
-        <span class="waveform" id="waveform" aria-hidden="true">
-          <i></i><i></i><i></i><i></i><i></i>
-        </span>
-      </div>
-      <div class="screen-meta">خطبة الجمعة · مسجد النور <span class="meta-sep">·</span> <span class="meta-title">التقوى أساس الكرامة</span></div>
-    </div>
-
-    <div class="screen-body">
-      <aside class="signer-panel">
-        <div class="signer-frame" id="signerFrame">
-          <video id="signerVideo" muted loop playsinline preload="auto"></video>
-          <span class="signer-tag" id="signerTag">المترجم الرقمي</span>
-          <span class="signer-flag" id="signerFlag" hidden>ترجمة آلية غير معتمدة</span>
-          <div class="signer-idle" id="signerIdle">
-            <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M7 11V6a1.5 1.5 0 0 1 3 0v4M10 10V4.5a1.5 1.5 0 0 1 3 0V10M13 10V5.5a1.5 1.5 0 0 1 3 0V11M16 11.5V8a1.5 1.5 0 0 1 3 0v6c0 4-2.5 7-6.5 7S6 18 6 15v-3a1.5 1.5 0 0 1 3 0"/></svg>
-            <span>بانتظار البث</span>
-          </div>
-        </div>
-        <p class="signer-note">كل إشارة منقولة من تسجيل مترجم معتمد · <strong>محاكاة بمقاطع مؤقتة</strong></p>
-      </aside>
-
-      <div class="text-col" id="textCol">
-        <p class="prev-line" id="prevLine"></p>
-        <div class="current-wrap">
-          <span class="unrev-badge" id="unrevBadge" hidden>نص آلي غير مُراجَع</span>
-          <p class="current-line" id="currentLine">بانتظار بدء الخطبة…</p>
-          <div class="verse-card" id="verseCard" hidden>
-            <p class="verse-badge">من المصحف · لم تُعَد صياغتها</p>
-            <p class="verse-text" id="verseText"></p>
-            <p class="verse-source" id="verseSource"></p>
-            <p class="verse-tafsir" id="verseTafsir"></p>
-          </div>
-        </div>
-        <p class="review-note" id="reviewNote">فيديو الإشارة والجمل الميسّرة اعتُمدا قبل الجمعة ✓</p>
-
-        <div class="noise-overlay" id="noiseOverlay" hidden>
-          <div class="noise-card">
-            <p class="noise-title">الصوت غير واضح</p>
-            <p class="noise-desc">توقّفت الترجمة مؤقتاً حفاظاً على دقة المعنى والإشارة، وستُستأنف تلقائياً.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <p class="asr-line"><span class="asr-label">التعرّف الصوتي</span> <span id="asrWords">—</span></p>
-
-    <div class="screen-controls">
-      <div class="controls-row">
-        <button class="ctl-btn ctl-primary" id="btnPlay" title="تشغيل / إيقاف">
-          <svg id="iconPlay" viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-          <svg id="iconPause" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
-        </button>
-        <button class="ctl-btn" id="btnRestart" title="إعادة من البداية">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
-        </button>
-        <button class="ctl-btn ctl-text" id="btnSpeed" title="سرعة المحاكاة">×1</button>
-
-        <div class="progress-wrap" id="progressWrap" title="اضغط للانتقال">
-          <div class="progress-bar" id="progressBar"></div>
-        </div>
-        <span class="time-label" id="timeLabel">0:00 / 1:40</span>
-      </div>
-
-      <div class="controls-row controls-row-2">
-        <div class="mode-toggle" id="modeToggle" role="group" aria-label="وضع الخطبة">
-          <button data-mode="prepared" class="on">خطبة مجهّزة</button>
-          <button data-mode="improvised">خطبة مرتجلة</button>
-        </div>
-        <div class="mode-toggle lang-toggle" id="langToggle" role="group" aria-label="لغة المصلي">
-          <button data-lang="ar" class="on">عربي</button>
-          <button data-lang="en">English</button>
-          <button data-lang="fr" disabled title="قريباً">Français</button>
-          <button data-lang="ur" disabled title="قريباً">اردو</button>
-        </div>
-        <button class="ctl-btn ctl-text" id="btnNoise">محاكاة ضجيج</button>
-        <span class="sync-widget" id="syncWidget">تتبّع الموضع <strong id="syncVal">—</strong></span>
-        <span class="spacer"></span>
-        <button class="ctl-btn ctl-text" id="btnFontMinus" title="تصغير الخط">ص−</button>
-        <button class="ctl-btn ctl-text" id="btnFontPlus" title="تكبير الخط">ص+</button>
-        <button class="ctl-btn" id="btnFullscreen" title="ملء الشاشة">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+        <input type="file" id="obFile" accept=".txt,.doc,.docx,.pdf" hidden />
+        <p class="files-label">خطب جاهزة للاختيار:</p>
+        <button class="file-item" id="obUseToday">
+          <span class="pdf-ico" aria-hidden="true">
+            <svg viewBox="0 0 32 40">
+              <path d="M4 3 h17 l7 7 v27 a3 3 0 0 1 -3 3 H7 a3 3 0 0 1 -3 -3 z" fill="#F6F5F3" stroke="#E33225" stroke-width="2.4"/>
+              <path d="M21 3 v7 h7" fill="none" stroke="#E33225" stroke-width="2.4"/>
+              <text x="16" y="31" text-anchor="middle" font-size="10" font-weight="700" fill="#E33225" font-family="Arial">PDF</text>
+            </svg>
+          </span>
+          <span class="file-meta">
+            <strong>خطبة الجمعة — التقوى أساس الكرامة.pdf</strong>
+            <small>11 جملة · مُجهّزة ومُراجَعة · جاهزة للبث</small>
+          </span>
+          <span class="chip chip-green">جاهزة</span>
         </button>
       </div>
-    </div>
+      <div id="obPipe" hidden>
+        <p class="ob-pipe-title" id="obPipeTitle"></p>
+        <ul class="ob-pipe">
+          <li>رفع النص وتقسيمه إلى جمل</li>
+          <li>الترجمة إلى تسلسل الإشارات (نموذج منبر)</li>
+          <li>توليد أداء المترجم الرقمي</li>
+          <li>المطابقة مع آيات المصحف</li>
+          <li>جاهزة للمراجعة — اعتماد المختص والمترجم (محاكاة في هذا العرض)</li>
+        </ul>
+      </div>
+    </section>
 
-    <div class="start-overlay" id="startOverlay">
-      <p class="start-title">المساجد القريبة</p>
-      <div class="mosque-list" id="mosqueList"></div>
-      <p class="start-note">محاكاة كاملة لتجربة المصلي: مترجم رقمي في المقدمة، نص متزامن، آيتان بنص المصحف، وترجمة بلغة المصلي.</p>
-    </div>
-
-    <div class="end-overlay" id="endOverlay" hidden>
-      <p class="end-title">انتهت الخطبة</p>
-      <p class="end-desc" id="endSummary"></p>
-      <button class="btn btn-gold" id="btnReplay">إعادة المحاكاة</button>
-    </div>
-  </div>
-
-  <div class="container screen-notes">
-    <h3>ماذا تشاهد الآن؟</h3>
-    <ul class="notes-list">
-      <li><strong>المترجم الرقمي في المقدمة دائماً:</strong> يترجم كلام الإمام إلى لغة الإشارة — في هذه المحاكاة مقاطع مؤقتة، وفي المنتج شخصية رقمية تؤدي إشارات منقولة من تسجيل مترجم معتمد.</li>
-      <li><strong>النص يرافق الإشارة دائماً:</strong> جملة ميسّرة متزامنة، والآيات بنص المصحف — والمصطلحات الذهبية تفتح مفردات الإشارة.</li>
-      <li><strong>بلغة المصلي:</strong> بدّل إلى English لترى الخطبة مترجمة فورياً مع ترجمة آيات معتمدة.</li>
-      <li><strong>خطبة مرتجلة:</strong> نسخة تجريبية بتأخير بسيط ووسم «ترجمة آلية غير معتمدة» على الإشارة والنص.</li>
-      <li><strong>محاكاة ضجيج:</strong> عند ضعف الصوت تتوقف الترجمة بشفافية بدل عرض إشارة أو نص غير دقيق.</li>
-    </ul>
-  </div>
-</section>
-
-<!-- imam dashboard -->
-<section class="view" id="view-dashboard">
-  <div class="container page-head">
-    <div>
-      <p class="sec-kicker">لوحة الإمام</p>
-      <h2 class="sec-title">خطبة: التقوى أساس الكرامة</h2>
-      <p class="page-sub" id="dashMeta"></p>
-    </div>
-    <button class="btn btn-primary" id="btnUpload">رفع خطبة جديدة</button>
-  </div>
-
-  <div class="container">
-    <div class="steps-row" id="stepsRow"></div>
-    <div class="dash-stats" id="dashStats"></div>
-
-    <div class="dash-grid">
-      <div class="dash-main">
-        <div class="panel">
-          <div class="panel-head">
-            <h3>مراجعة الجمل الميسّرة وفيديو الإشارة</h3>
-            <span class="chip chip-green">اعتمدها المختص والمترجم ✓</span>
-          </div>
-          <div class="table-wrap">
-            <table class="review-table" id="reviewTable">
-              <thead>
-                <tr><th>#</th><th>الجملة الأصلية</th><th>الجملة الميسّرة</th><th>الحالة</th></tr>
-              </thead>
-              <tbody></tbody>
-            </table>
-          </div>
+    <section class="ob-step" hidden>
+      <h2>جاهز للبث</h2>
+      <p class="ob-summary" id="obSummary"></p>
+      <div class="ob-golive">
+        <div class="ob-qr">
+          <div class="qr-box lg" id="obQr"></div>
+          <span>امسح لعرض البث على الجوال<br /><small id="obQrUrl"></small></span>
+        </div>
+        <div class="ob-actions">
+          <button class="btn btn-gold btn-lg" id="obStart">ابدأ البث على هذه الشاشة</button>
+          <button class="pill linkish" id="obBack2">رجوع</button>
         </div>
       </div>
-
-      <aside class="dash-side">
-        <div class="panel">
-          <h3>الآيات المكتشفة</h3>
-          <ul class="side-list" id="versesList"></ul>
-        </div>
-        <div class="panel">
-          <h3>مفردات الإشارة المرتبطة</h3>
-          <ul class="side-list" id="termsList"></ul>
-        </div>
-        <div class="panel panel-next">
-          <h3>خطبة الجمعة القادمة</h3>
-          <p class="next-title" id="nextTitle"></p>
-          <div class="mini-progress"><div id="nextProgress"></div></div>
-          <p class="next-note" id="nextNote"></p>
-        </div>
-      </aside>
-    </div>
-  </div>
-</section>
-
-<!-- sign vocabulary -->
-<section class="view" id="view-glossary">
-  <div class="container page-head">
-    <div>
-      <p class="sec-kicker">مفردات الإشارة</p>
-      <h2 class="sec-title">كل إشارة يؤديها المترجم الرقمي مصدرها مترجم معتمد</h2>
-      <p class="page-sub">تُسجَّل الإشارات من مترجمي إشارة معتمدين ثم تُنقل حركتها إلى الشخصية الرقمية بالذكاء الاصطناعي — فلا تُخترع إشارة أبداً. مقاطع هذا العرض مؤقتة من قاموس مفتوح؛ مرّر فوق البطاقة لمعاينتها.</p>
-    </div>
-    <figure class="page-figure">
-      <img src="assets/img/sign-alphabet.jpg" alt="لوحة الأبجدية العربية بلغة الإشارة" loading="lazy" />
-      <figcaption>الأبجدية العربية بلغة الإشارة — تُستعمل للتهجئة خارج المفردات</figcaption>
-    </figure>
-  </div>
-  <div class="container">
-    <div class="glossary-grid" id="glossaryGrid"></div>
-  </div>
-</section>
-
-<!-- impact -->
-<section class="view" id="view-impact">
-  <div class="container page-head">
-    <div>
-      <p class="sec-kicker">الأثر والقياس</p>
-      <h2 class="sec-title">نقيس النجاح بارتفاع فهم الصم للخطبة</h2>
-      <p class="page-sub">ثلاثة مؤشرات معتمدة في خطة القياس: الفهم، دقة التزامن، ودقة الإشارة بحكم مترجم معتمد — تُجمع من جلسات اختبار مع مشاركين صم وخطب مسجّلة.</p>
-    </div>
-  </div>
-
-  <div class="container">
-    <div class="panel chart-panel">
-      <div class="panel-head">
-        <h3>الفهم: نسبة الإجابات الصحيحة عن أسئلة فهم الخطبة</h3>
-      </div>
-      <div class="compare-chart" id="compareChart"></div>
-      <p class="chart-note" id="chartNote"></p>
-    </div>
-
-    <div class="metric-tiles" id="metricTiles"></div>
-
-    <p class="demo-banner">أرقام تجريبية من جلسات محاكاة لأغراض العرض — تُستبدل بنتائج الاختبار في مسجد حقيقي خلال أيام التحدي.</p>
-
-    <div class="vision-band">
-      <img src="assets/img/vision-mosque.jpg" alt="قبة مسجد الاستقلال الخضراء من الداخل" loading="lazy" />
-      <div class="vision-overlay">
-        <p class="sec-kicker">المسار والرؤية</p>
-        <h3>إلى أين يصل منبر</h3>
-      </div>
-    </div>
-
-    <div class="section-inline">
-      <div class="cards-3">
-        <article class="card"><h3>الآن: مسجد تجريبي</h3><p>نبني منبر خلال أيام التحدي، ونختبره في مسجد حقيقي، ونسلّمه منتجاً يعمل على الهواتف وشاشات المساجد.</p></article>
-        <article class="card"><h3>ثم: مفردات أوسع ولغات أكثر</h3><p>توسيع قاموس الإشارات المعتمدة، وإضافة لغات المصلين، وتغطية خطب مساجد متعددة في بث واحد.</p></article>
-        <article class="card"><h3>المدى البعيد: كل مسجد كل جمعة</h3><p>شراكة مع الأوقاف لرفع الخطبة أسبوعياً، وقاموس إشاري موحّد للمصطلحات الشرعية.</p></article>
-      </div>
-    </div>
-  </div>
-</section>
-
-</main>
-
-<div class="modal-backdrop" id="modalBackdrop" hidden>
-  <div class="modal" role="dialog" aria-modal="true" id="modalBox">
-    <button class="modal-close" id="modalClose" aria-label="إغلاق">✕</button>
-    <div class="modal-body" id="modalBody"></div>
+    </section>
   </div>
 </div>
-<div class="toast" id="toast" hidden></div>
 
+<main class="live-grid">
+  <section class="stage-panel">
+    <canvas id="stage3d"></canvas>
+    <p id="bootError" class="boot-error" hidden></p>
+    <span class="stage-flag">حركات أولية من الفريق — بانتظار اعتماد مترجم معتمد</span>
+    <span class="stage-flag warn" id="flagAuto" hidden>ترجمة آلية غير معتمدة</span>
+    <button class="qr-toggle" id="qrToggle" hidden title="عرض رمز QR للجوال">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v3h-3v-3zm-5 0h3v3h-3v-3zm5 5h3v3h-3v-3zm-5 0h3v3h-3v-3z"/></svg>
+    </button>
+    <div class="qr-card" id="qrCard" hidden>
+      <div class="qr-box" id="qrBox"></div>
+      <span>تابع البث على جوالك<br /><small>نفس شبكة الواي فاي</small></span>
+    </div>
+    <div class="mobile-bar" id="mobileBar" hidden>
+      <span class="live-dot-sm"></span> بث مباشر — <strong id="mobileMosque"></strong>
+      <span class="pill" id="mobileTicker"></span>
+    </div>
+    <div class="stage-bottom">
+      <div id="glossStrip" class="gloss-strip"></div>
+      <p id="mobileSentence" class="subtitle" hidden></p>
+      <div class="sign-row">
+        <p id="caption"></p>
+        <span class="pill" id="srcBadge"></span>
+      </div>
+      <div class="rec-dock">
+        <span class="pill" id="micStatus" hidden>متوقف</span>
+        <button class="rec-fab" id="btnMic" aria-label="ابدأ الاستماع" title="ابدأ الاستماع">
+          <svg id="icoMicStart" viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+          </svg>
+          <svg id="icoMicStop" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" hidden>
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <button class="panel-handle" id="panelHandle" title="جمل الخطبة والنص">
+    <span class="ph-arrow">◂</span><span class="ph-label">الخطبة والنص</span>
+  </button>
+  <aside class="side-panel" id="sidePanel">
+    <div class="panel-body">
+      <section class="panel-sec">
+        <h3>جمل الخطبة المجهّزة</h3>
+        <p class="pane-hint">اضغط جملة ليترجمها المترجم الرقمي — أو استخدم زر الاستماع.</p>
+        <div id="sentenceList" class="sent-list"></div>
+      </section>
+      <section class="panel-sec listen-box" id="paneMic">
+        <h3>الاستماع المباشر</h3>
+        <div class="vu-track"><div id="vu"></div></div>
+        <div class="mode-toggle" id="micMode">
+          <button data-mode="prepared" class="on">تتبع الخطبة المجهّزة</button>
+          <button data-mode="improvised">مرتجل (آلي)</button>
+        </div>
+        <p class="interim" id="interim"></p>
+        <div id="transcript" class="transcript"></div>
+      </section>
+      <footer class="side-foot">
+        الخدمة متصلة بخادم الفريق؛ عند تعذّر الاتصال يُستخدم الخادم المحلي ثم القاموس التجريبي.
+      </footer>
+    </div>
+  </aside>
+</main>
+
+<div class="settings-overlay" id="settingsOverlay" hidden>
+  <div class="settings-card" role="dialog" aria-modal="true">
+    <h2>الإعدادات</h2>
+    <label class="set-field">
+      <span>رابط خادم n8n (Webhook Base)</span>
+      <input type="url" id="setBase" dir="ltr" placeholder="https://your-n8n-host/webhook" />
+      <small>يُترك فارغاً لاستخدام خادم الفريق الافتراضي.</small>
+    </label>
+    <label class="set-field">
+      <span>مفتاح OpenAI — وضع مباشر تجريبي</span>
+      <div class="key-row">
+        <input type="password" id="setKey" dir="ltr" placeholder="sk-..." autocomplete="off" />
+        <button type="button" class="pill linkish" id="setKeyEye">إظهار</button>
+      </div>
+      <small class="warn-note">يُحفظ في متصفحك فقط (localStorage) ولا يُرسل إلا إلى OpenAI مباشرة. لا تستخدمه على جهاز عام — الخيار الآمن هو خادم n8n.</small>
+    </label>
+    <div class="set-actions">
+      <button class="btn btn-gold" id="setSave">حفظ وإعادة التحميل</button>
+      <button class="pill linkish" id="setClear">مسح المفاتيح</button>
+      <button class="pill linkish" id="setCancel">إلغاء</button>
+    </div>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="js/data.js"></script>
-<script src="js/app.js"></script>
-<script src="js/screen.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/glossary.js"></script>
-<script src="js/impact.js"></script>
+<script type="module" src="js/live/live.js"></script>
 </body>
 </html>
