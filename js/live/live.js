@@ -18,6 +18,14 @@ const state = {
 };
 
 async function boot() {
+  // onboarding is pure UI — run it while the character/lexicon load so the
+  // user is never stuck staring at an empty card if an asset is slow
+  const isMobileView = params.get("view") === "mobile";
+  const isDebug = params.get("wp") || params.get("sign");
+  const onboardingPromise = (!isMobileView && !isDebug && document.querySelector("#onboard"))
+    ? runOnboarding()
+    : null;
+
   const [stage, signs, handshapes] = await Promise.all([
     createStage($("#stage3d"), { controls: params.has("controls") }),
     fetch("assets/lexicon/signs.json").then(r => r.json()),
@@ -172,20 +180,6 @@ async function boot() {
     list.children[i]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
   }
 
-  // ---- free text -----------------------------------------------------------
-  $("#btnSay").addEventListener("click", () => {
-    const t = $("#freeText").value.trim();
-    if (t) perform(t, { flag: true });
-  });
-
-  // ---- tabs -----------------------------------------------------------------
-  document.querySelectorAll(".tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t === tab));
-      document.querySelectorAll(".pane").forEach(p => p.hidden = p.id !== tab.dataset.pane);
-    });
-  });
-
   // ---- mic -------------------------------------------------------------------
   const micBtn = $("#btnMic");
   const micStatus = $("#micStatus");
@@ -197,6 +191,7 @@ async function boot() {
       s === "transcribing" ? "يفرّغ الصوت…" :
       s === "error" ? `خطأ: ${detail || ""}` : "متوقف";
     micStatus.className = "pill " + (s === "listening" ? "ok" : s === "error" ? "bad" : "");
+    micStatus.hidden = s === "stopped";
   }
 
   function matchPrepared(text) {
@@ -236,8 +231,11 @@ async function boot() {
     if (state.micOn) {
       state.adapter?.stop();
       state.micOn = false;
-      micBtn.textContent = "ابدأ الاستماع";
       micBtn.classList.remove("live");
+      micBtn.setAttribute("aria-label", "ابدأ الاستماع");
+      micBtn.title = "ابدأ الاستماع";
+      $("#icoMicStart").hidden = false;
+      $("#icoMicStop").hidden = true;
       return;
     }
     state.adapter = await pickAdapter({
@@ -249,8 +247,11 @@ async function boot() {
     try {
       await state.adapter.start();
       state.micOn = true;
-      micBtn.textContent = "أوقف الاستماع";
       micBtn.classList.add("live");
+      micBtn.setAttribute("aria-label", "أوقف الاستماع");
+      micBtn.title = "أوقف الاستماع";
+      $("#icoMicStart").hidden = true;
+      $("#icoMicStop").hidden = false;
     } catch (e) { setMicState("error", e.name === "NotAllowedError" ? "رفض إذن الميكروفون" : e.message); }
   });
 
@@ -281,7 +282,7 @@ async function boot() {
       $("#mobileTicker").textContent = "بث تجريبي مستقل";
       mobileFollowLoop(t => perform(t), () => player.busy, (i, n) => {
         $("#mobileTicker").textContent = `بث تجريبي مستقل · ${i + 1}/${n}`;
-      });
+      }, () => synced);
     };
     try {
       const es = new EventSource(`/api/live/stream?m=${mIdx}`);
@@ -300,7 +301,7 @@ async function boot() {
       $("#mobileTicker").textContent = "بانتظار بث الشاشة…";
     } catch { startFallback(); }
   } else {
-    const setup = await runOnboarding();
+    const setup = await onboardingPromise;
     state.mosqueIdx = setup.mosqueIdx;
     if (setup.khutbah) {
       sentences.length = 0;
@@ -310,14 +311,26 @@ async function boot() {
         `خطبة «${setup.khutbah.title}» المرفوعة — اضغط جملة ليترجمها المترجم الرقمي.`;
     }
     await markLive(setup);
+    $("#qrToggle").hidden = false;
+    $("#qrToggle").addEventListener("click", () => { $("#qrCard").hidden = !$("#qrCard").hidden; });
+    $("#qrCard").addEventListener("click", () => { $("#qrCard").hidden = true; });
     const btnSetup = $("#btnSetup");
     btnSetup.hidden = false;
     btnSetup.addEventListener("click", () => location.reload());
   }
+  $("#panelHandle")?.addEventListener("click", () => document.body.classList.toggle("panel-closed"));
 }
 
 boot().catch(e => {
   console.error(e);
+  const msg = "تعذر تحميل المشهد: " + (e?.message || e);
+  const card = document.querySelector("#onboard .ob-card");
+  if (card) {
+    const box = document.createElement("div");
+    box.className = "ob-error";
+    box.innerHTML = `<p>${msg}</p><button class="btn btn-gold" onclick="location.reload()">إعادة المحاولة</button>`;
+    card.appendChild(box);
+  }
   const el = document.querySelector("#bootError");
-  if (el) { el.hidden = false; el.textContent = "تعذر تحميل المشهد: " + e.message; }
+  if (el) { el.hidden = false; el.textContent = msg; }
 });

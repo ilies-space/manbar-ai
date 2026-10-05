@@ -61,5 +61,26 @@
     "author": null,
     "license": "Public redistribution permission not yet documented",
     "source": null
+  },
+  {
+    "file": "assets/img/mosques/haram.jpg",
+    "title": "The Ka'ba, Great Mosque of Mecca, Saudi Arabia (4).jpg",
+    "author": "Richard Mortel",
+    "license": "CC BY 2.0",
+    "source": "https://commons.wikimedia.org/wiki/File:The_Ka%27ba,_Great_Mosque_of_Mecca,_Saudi_Arabia_(4).jpg"
+  },
+  {
+    "file": "assets/img/mosques/nabawi.jpg",
+    "title": "Wide shot of the Green Dome at The Prophet's Mosque (Al Masjid-e-Nabawi).jpg",
+    "author": "TheHadiRahim",
+    "license": "CC0",
+    "source": "https://commons.wikimedia.org/wiki/File:Wide_shot_of_the_Green_Dome_at_The_Prophet%27s_Mosque_(Al_Masjid-e-Nabawi).jpg"
+  },
+  {
+    "file": "assets/img/mosques/quba.jpg",
+    "title": "Quba Masjid - panoramio.jpg",
+    "author": "collage bird's eye v…",
+    "license": "CC BY-SA 3.0",
+    "source": "https://commons.wikimedia.org/wiki/File:Quba_Masjid_-_panoramio.jpg"
   }
 ]

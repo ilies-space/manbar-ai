@@ -101,15 +101,21 @@ export async function createStage(canvas, { modelUrl = "assets/character/transla
   if (orbit) { orbit.target.set(0, h * 0.72, 0); orbit.update(); }
   halo.scale.setScalar(h / 1.7);
 
+  // track last-applied CSS size + DPR: comparing against canvas.width breaks
+  // on fractional pixel ratios (three floors the product), which made this
+  // run setSize() every frame and freeze resizing
+  let lastW = 0, lastH = 0, lastPr = 0;
   function resize() {
-    const w = canvas.clientWidth, hh = canvas.clientHeight;
+    const w = canvas.clientWidth | 0, hh = canvas.clientHeight | 0;
     if (!w || !hh) return;
-    if (canvas.width !== w * renderer.getPixelRatio() || canvas.height !== hh * renderer.getPixelRatio()) {
-      renderer.setSize(w, hh, false);
-      camera.aspect = w / hh;
-      camera.updateProjectionMatrix();
-      fitCamera();
-    }
+    const pr = Math.min(window.devicePixelRatio || 1, 2);
+    if (w === lastW && hh === lastH && pr === lastPr) return;
+    lastW = w; lastH = hh; lastPr = pr;
+    renderer.setPixelRatio(pr);
+    renderer.setSize(w, hh, false);
+    camera.aspect = w / hh;
+    camera.updateProjectionMatrix();
+    fitCamera();
   }
 
   const clock = new THREE.Clock();

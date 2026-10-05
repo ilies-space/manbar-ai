@@ -119,9 +119,9 @@ KHUTBAH.duration = (() => {
 
 // Mock nearby mosques for the "join a live khutbah" entry screen
 const MOSQUES = [
-  { name: "مسجد النور", city: "الرياض", live: true, khutbah: "التقوى أساس الكرامة" },
-  { name: "جامع الرحمة", city: "الرياض", live: false },
-  { name: "مسجد الفرقان", city: "جدة", live: false }
+  { name: "المسجد الحرام", city: "مكة المكرمة", img: "assets/img/mosques/haram.jpg", live: true, khutbah: "التقوى أساس الكرامة" },
+  { name: "المسجد النبوي", city: "المدينة المنورة", img: "assets/img/mosques/nabawi.jpg", live: true, khutbah: "التقوى أساس الكرامة" },
+  { name: "مسجد قباء", city: "المدينة المنورة", img: "assets/img/mosques/quba.jpg", live: true, khutbah: "التقوى أساس الكرامة" }
 ];
 
 // Sign vocabulary. Every sign the digital interpreter performs is motion-

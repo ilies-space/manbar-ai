@@ -93,7 +93,11 @@ export class SignPlayer {
         L1: 0, L2: 0
       };
 
-      // per-joint curl & spread axes (bind pose, bone-local)
+      // per-joint curl & spread axes (bind pose, bone-local).
+      // Fingers flex toward the palm normal; the THUMB's flexion plane is
+      // ~90° rotated — it sweeps ACROSS the palm toward the pinky base
+      // (opposition), so it gets its own target direction.
+      const pinkyBaseW = pky ? pky.getWorldPosition(new THREE.Vector3()) : null;
       for (const d of DIGITS) {
         for (let k = 1; k <= 3; k++) {
           const bone = b[`${side}${d}${k}`];
@@ -108,7 +112,11 @@ export class SignPlayer {
             tip = head.clone().add(head.clone().sub(back));
           }
           const a = tip.sub(head).normalize();
-          let curlW = new THREE.Vector3().crossVectors(a, n0);
+          let flexTarget = n0;
+          if (d === "Thumb" && pinkyBaseW) {
+            flexTarget = pinkyBaseW.clone().sub(head).normalize();
+          }
+          let curlW = new THREE.Vector3().crossVectors(a, flexTarget);
           if (curlW.lengthSq() < 0.04) curlW = new THREE.Vector3().crossVectors(a, f0);
           curlW.normalize();
           const bq = bone.getWorldQuaternion(new THREE.Quaternion()).invert();

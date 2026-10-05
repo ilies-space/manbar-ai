@@ -18,7 +18,7 @@
 } }
 </script>
 </head>
-<body class="live-body">
+<body class="live-body panel-closed">
 
 <header class="live-top">
   <a class="brand" href="index.html">
@@ -40,6 +40,7 @@
 </header>
 
 <div class="ob-overlay" id="onboard">
+  <button id="obSkip" class="ob-skip" title="للتطوير فقط">تخطٍ ↵</button>
   <div class="ob-card">
     <div class="ob-head">
       <span class="ob-logo">منبر</span>
@@ -56,9 +57,27 @@
       <h2>خطبة الجمعة</h2>
       <p class="ob-hint">يرفع الإمام نص الخطبة قبل الجمعة، فيترجمها نموذجنا إلى لغة الإشارة ويولّد أداء المترجم الرقمي، ثم يعتمدها المختص.</p>
       <div id="obUploadUi">
-        <div class="dropzone" id="obDrop">اسحب ملف الخطبة هنا أو اضغط للاختيار<br /><small>.txt أو .docx</small></div>
+        <div class="dropzone" id="obDrop">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 16V4m0 0l-4 4m4-4l4 4M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          اسحب ملف الخطبة وأفلته هنا
+          <small>.txt — أو <button type="button" class="dz-browse" id="obBrowse">اختر ملفاً</button></small>
+        </div>
         <input type="file" id="obFile" accept=".txt,.doc,.docx,.pdf" hidden />
-        <button class="btn btn-gold" id="obUseToday">استخدام خطبة اليوم المجهّزة «التقوى أساس الكرامة»</button>
+        <p class="files-label">خطب جاهزة للاختيار:</p>
+        <button class="file-item" id="obUseToday">
+          <span class="pdf-ico" aria-hidden="true">
+            <svg viewBox="0 0 32 40">
+              <path d="M4 3 h17 l7 7 v27 a3 3 0 0 1 -3 3 H7 a3 3 0 0 1 -3 -3 z" fill="#F6F5F3" stroke="#E33225" stroke-width="2.4"/>
+              <path d="M21 3 v7 h7" fill="none" stroke="#E33225" stroke-width="2.4"/>
+              <text x="16" y="31" text-anchor="middle" font-size="10" font-weight="700" fill="#E33225" font-family="Arial">PDF</text>
+            </svg>
+          </span>
+          <span class="file-meta">
+            <strong>خطبة الجمعة — التقوى أساس الكرامة.pdf</strong>
+            <small>11 جملة · مُجهّزة ومُراجَعة · جاهزة للبث</small>
+          </span>
+          <span class="chip chip-green">جاهزة</span>
+        </button>
       </div>
       <div id="obPipe" hidden>
         <p class="ob-pipe-title" id="obPipeTitle"></p>
@@ -95,6 +114,9 @@
     <p id="bootError" class="boot-error" hidden></p>
     <span class="stage-flag">حركات أولية من الفريق — بانتظار اعتماد مترجم معتمد</span>
     <span class="stage-flag warn" id="flagAuto" hidden>ترجمة آلية غير معتمدة</span>
+    <button class="qr-toggle" id="qrToggle" hidden title="عرض رمز QR للجوال">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v3h-3v-3zm-5 0h3v3h-3v-3zm5 5h3v3h-3v-3zm-5 0h3v3h-3v-3z"/></svg>
+    </button>
     <div class="qr-card" id="qrCard" hidden>
       <div class="qr-box" id="qrBox"></div>
       <span>تابع البث على جوالك<br /><small>نفس شبكة الواي فاي</small></span>
@@ -103,50 +125,51 @@
       <span class="live-dot-sm"></span> بث مباشر — <strong id="mobileMosque"></strong>
       <span class="pill" id="mobileTicker"></span>
     </div>
-    <div class="stage-caption">
-      <p id="mobileSentence" class="mobile-sentence" hidden></p>
+    <div class="stage-bottom">
       <div id="glossStrip" class="gloss-strip"></div>
-      <p id="caption"></p>
-      <span class="pill" id="srcBadge"></span>
+      <p id="mobileSentence" class="subtitle" hidden></p>
+      <div class="sign-row">
+        <p id="caption"></p>
+        <span class="pill" id="srcBadge"></span>
+      </div>
+      <div class="rec-dock">
+        <span class="pill" id="micStatus" hidden>متوقف</span>
+        <button class="rec-fab" id="btnMic" aria-label="ابدأ الاستماع" title="ابدأ الاستماع">
+          <svg id="icoMicStart" viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
+            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
+          </svg>
+          <svg id="icoMicStop" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" hidden>
+            <rect x="6" y="6" width="12" height="12" rx="2"/>
+          </svg>
+        </button>
+      </div>
     </div>
   </section>
 
-  <aside class="side-panel">
-    <div class="tabs">
-      <button class="tab on" data-pane="paneSent">جمل الخطبة</button>
-      <button class="tab" data-pane="paneFree">نص حر</button>
-      <button class="tab" data-pane="paneMic">الميكروفون</button>
+  <button class="panel-handle" id="panelHandle" title="جمل الخطبة والنص">
+    <span class="ph-arrow">◂</span><span class="ph-label">الخطبة والنص</span>
+  </button>
+  <aside class="side-panel" id="sidePanel">
+    <div class="panel-body">
+      <section class="panel-sec">
+        <h3>جمل الخطبة المجهّزة</h3>
+        <p class="pane-hint">اضغط جملة ليترجمها المترجم الرقمي — أو استخدم زر الاستماع.</p>
+        <div id="sentenceList" class="sent-list"></div>
+      </section>
+      <section class="panel-sec listen-box" id="paneMic">
+        <h3>الاستماع المباشر</h3>
+        <div class="vu-track"><div id="vu"></div></div>
+        <div class="mode-toggle" id="micMode">
+          <button data-mode="prepared" class="on">تتبع الخطبة المجهّزة</button>
+          <button data-mode="improvised">مرتجل (آلي)</button>
+        </div>
+        <p class="interim" id="interim"></p>
+        <div id="transcript" class="transcript"></div>
+      </section>
+      <footer class="side-foot">
+        الخدمة متصلة بخادم الفريق؛ عند تعذّر الاتصال يُستخدم الخادم المحلي ثم القاموس التجريبي.
+      </footer>
     </div>
-
-    <div class="pane" id="paneSent">
-      <p class="pane-hint">خطبة «التقوى أساس الكرامة» المجهّزة — اضغط جملة ليترجمها المترجم الرقمي.</p>
-      <div id="sentenceList" class="sent-list"></div>
-    </div>
-
-    <div class="pane" id="paneFree" hidden>
-      <p class="pane-hint">اكتب أي جملة عربية — تُحوَّل إلى تسلسل إشارات، والكلمة خارج المفردات تُهجّى.</p>
-      <textarea id="freeText" rows="4" placeholder="اكتب هنا…">اتقوا الله وأحسنوا إلى الناس</textarea>
-      <button class="btn btn-gold" id="btnSay">ترجم إلى الإشارة</button>
-    </div>
-
-    <div class="pane" id="paneMic" hidden>
-      <p class="pane-hint">صوت الإمام من الميكروفون: تفريغ، ثم مطابقة مع الخطبة المجهّزة أو ترجمة فورية موسومة.</p>
-      <div class="mic-row">
-        <button class="btn btn-gold" id="btnMic">ابدأ الاستماع</button>
-        <span class="pill" id="micStatus">متوقف</span>
-      </div>
-      <div class="vu-track"><div id="vu"></div></div>
-      <div class="mode-toggle" id="micMode">
-        <button data-mode="prepared" class="on">تتبع الخطبة المجهّزة</button>
-        <button data-mode="improvised">مرتجل (آلي)</button>
-      </div>
-      <p class="interim" id="interim"></p>
-      <div id="transcript" class="transcript"></div>
-    </div>
-
-    <footer class="side-foot">
-      الخدمة متصلة بخادم الفريق. عند تعذّر الاتصال، يُستخدم الخادم المحلي إن توفر، ثم القاموس التجريبي.
-    </footer>
   </aside>
 </main>
 

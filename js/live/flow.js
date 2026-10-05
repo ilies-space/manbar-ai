@@ -42,16 +42,18 @@ export function runOnboarding() {
       dots.forEach((d, j) => d.classList.toggle("on", j <= i));
     }
 
-    // step 1 — mosque
+    // step 1 — mosque (photo cards)
     const list = $("#obMosques");
+    list.className = "mosque-pick";
     list.innerHTML = "";
     mosques.forEach((m, i) => {
       const b = document.createElement("button");
-      b.className = "mosque-card" + (m.live ? " live" : "");
-      b.innerHTML = `<span class="mosque-name">${m.name} <small>· ${m.city}</small></span>` +
-        (m.live
-          ? `<span class="mosque-status on"><i></i> خطبة اليوم: ${m.khutbah}</span>`
-          : `<span class="mosque-status">لا خطبة مجدولة</span>`);
+      b.className = "mosque-photo" + (m.live ? " live" : "");
+      b.innerHTML =
+        `<img src="${m.img}" alt="${m.name}" loading="lazy" />` +
+        `<span class="mp-shade"></span>` +
+        `<span class="mp-info"><strong>${m.name}</strong><small>${m.city}</small></span>` +
+        (m.live ? `<span class="mp-live"><i></i> خطبة اليوم</span>` : "");
       if (!m.live) b.disabled = true;
       b.addEventListener("click", () => { mosqueIdx = i; show(1); });
       list.appendChild(b);
@@ -61,9 +63,9 @@ export function runOnboarding() {
     // back to the pre-staged khutbah, labeled)
     let customKhutbah = null;
     const fileInput = $("#obFile");
-    $("#obDrop").addEventListener("click", () => fileInput.click());
-    fileInput.addEventListener("change", async () => {
-      const file = fileInput.files[0];
+    const drop = $("#obDrop");
+
+    async function ingest(file) {
       if (!file) return;
       if (/\.txt$/i.test(file.name)) {
         const text = await file.text();
@@ -74,7 +76,19 @@ export function runOnboarding() {
         }
       }
       startPipeline(`${file.name} (تنسيق غير مدعوم في العرض — تُستخدم خطبة اليوم المجهّزة)`);
+    }
+
+    // the zone itself is drag&drop only; browsing goes through the explicit link
+    $("#obBrowse").addEventListener("click", e => { e.stopPropagation(); fileInput.click(); });
+    fileInput.addEventListener("change", () => ingest(fileInput.files[0]));
+    for (const ev of ["dragenter", "dragover"]) drop.addEventListener(ev, e => {
+      e.preventDefault(); drop.classList.add("over");
     });
+    for (const ev of ["dragleave", "drop"]) drop.addEventListener(ev, e => {
+      e.preventDefault(); drop.classList.remove("over");
+    });
+    drop.addEventListener("drop", e => ingest(e.dataTransfer?.files?.[0]));
+
     $("#obUseToday").addEventListener("click", () => startPipeline(null));
 
     async function startPipeline(label) {
@@ -108,6 +122,12 @@ export function runOnboarding() {
     }
 
     $("#obBack2").addEventListener("click", () => show(0));
+    const skip = $("#obSkip");
+    if (skip) skip.addEventListener("click", () => {
+      overlay.classList.add("gone");
+      setTimeout(() => overlay.remove(), 350);
+      resolve({ mosque: mosques[mosqueIdx], mosqueIdx, khutbah: null });
+    });
     $("#obStart").addEventListener("click", () => {
       overlay.classList.add("gone");
       setTimeout(() => overlay.remove(), 450);
@@ -124,7 +144,6 @@ export async function markLive({ mosque, mosqueIdx, khutbah }) {
   $("#mosqueBadge").hidden = false;
   const url = await buildMobileUrl(mosqueIdx);
   renderQr($("#qrBox"), url);
-  $("#qrCard").hidden = false;
   return url;
 }
 
@@ -137,16 +156,17 @@ export function enterMobileMode(mosqueIdx) {
   return m;
 }
 
-export async function mobileFollowLoop(perform, playerBusy, onSentence) {
+export async function mobileFollowLoop(perform, playerBusy, onSentence, shouldStop = () => false) {
   const sentences = KHUTBAH.segments.map(s => s.type === "verse" ? `${s.original} ${s.verse.text}` : s.original);
   for (;;) {
     for (let i = 0; i < sentences.length; i++) {
+      if (shouldStop()) return;        // the screen's live session took over
       onSentence(i, sentences.length);
       await perform(sentences[i]);
-      // wait for the signer to finish this sentence
       await new Promise(r => setTimeout(r, 600));
-      while (playerBusy()) await new Promise(r => setTimeout(r, 300));
+      while (playerBusy() && !shouldStop()) await new Promise(r => setTimeout(r, 300));
       await new Promise(r => setTimeout(r, 900));
+      if (shouldStop()) return;
     }
   }
 }
