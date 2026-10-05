@@ -28,6 +28,8 @@
     <span class="brand-name">منبر</span>
   </a>
   <h1>المترجم الحي <span class="muted">· نموذج تجريبي</span></h1>
+  <span class="pill gold" id="mosqueBadge" hidden></span>
+  <button class="pill linkish" id="btnSetup" hidden>تغيير الإعداد</button>
   <div class="live-chips">
     <span class="pill" id="chipEngine">…</span>
     <span class="pill" id="chipVocab">…</span>
@@ -37,13 +39,72 @@
   </div>
 </header>
 
+<div class="ob-overlay" id="onboard">
+  <div class="ob-card">
+    <div class="ob-head">
+      <span class="ob-logo">منبر</span>
+      <div class="ob-dots"><i class="ob-dot on"></i><i class="ob-dot"></i><i class="ob-dot"></i></div>
+    </div>
+
+    <section class="ob-step">
+      <h2>اختر المسجد</h2>
+      <p class="ob-hint">تُبث خطبة الجمعة من مكبّر صوت المسجد إلى شاشة ركن الصم وجوالات المصلين.</p>
+      <div class="mosque-list" id="obMosques"></div>
+    </section>
+
+    <section class="ob-step" hidden>
+      <h2>خطبة الجمعة</h2>
+      <p class="ob-hint">يرفع الإمام نص الخطبة قبل الجمعة، فيترجمها نموذجنا إلى لغة الإشارة ويولّد أداء المترجم الرقمي، ثم يعتمدها المختص.</p>
+      <div id="obUploadUi">
+        <div class="dropzone" id="obDrop">اسحب ملف الخطبة هنا أو اضغط للاختيار<br /><small>.txt أو .docx</small></div>
+        <input type="file" id="obFile" accept=".txt,.doc,.docx,.pdf" hidden />
+        <button class="btn btn-gold" id="obUseToday">استخدام خطبة اليوم المجهّزة «التقوى أساس الكرامة»</button>
+      </div>
+      <div id="obPipe" hidden>
+        <p class="ob-pipe-title" id="obPipeTitle"></p>
+        <ul class="ob-pipe">
+          <li>رفع النص وتقسيمه إلى جمل</li>
+          <li>الترجمة إلى تسلسل الإشارات (نموذج منبر)</li>
+          <li>توليد أداء المترجم الرقمي</li>
+          <li>المطابقة مع آيات المصحف</li>
+          <li>جاهزة للمراجعة — اعتماد المختص والمترجم (محاكاة في هذا العرض)</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="ob-step" hidden>
+      <h2>جاهز للبث</h2>
+      <p class="ob-summary" id="obSummary"></p>
+      <div class="ob-golive">
+        <div class="ob-qr">
+          <div class="qr-box lg" id="obQr"></div>
+          <span>امسح لعرض البث على الجوال<br /><small id="obQrUrl"></small></span>
+        </div>
+        <div class="ob-actions">
+          <button class="btn btn-gold btn-lg" id="obStart">ابدأ البث على هذه الشاشة</button>
+          <button class="pill linkish" id="obBack2">رجوع</button>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
 <main class="live-grid">
   <section class="stage-panel">
     <canvas id="stage3d"></canvas>
     <p id="bootError" class="boot-error" hidden></p>
     <span class="stage-flag">حركات أولية من الفريق — بانتظار اعتماد مترجم معتمد</span>
     <span class="stage-flag warn" id="flagAuto" hidden>ترجمة آلية غير معتمدة</span>
+    <div class="qr-card" id="qrCard" hidden>
+      <div class="qr-box" id="qrBox"></div>
+      <span>تابع البث على جوالك<br /><small>نفس شبكة الواي فاي</small></span>
+    </div>
+    <div class="mobile-bar" id="mobileBar" hidden>
+      <span class="live-dot-sm"></span> بث مباشر — <strong id="mobileMosque"></strong>
+      <span class="pill" id="mobileTicker"></span>
+    </div>
     <div class="stage-caption">
+      <p id="mobileSentence" class="mobile-sentence" hidden></p>
       <div id="glossStrip" class="gloss-strip"></div>
       <p id="caption"></p>
       <span class="pill" id="srcBadge"></span>
@@ -89,6 +150,7 @@
   </aside>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="js/data.js"></script>
 <script type="module" src="js/live/live.js"></script>
 </body>

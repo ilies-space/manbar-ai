@@ -60,6 +60,10 @@ export function ruleTranslate(text) {
   return items;
 }
 
+export function needsNegationReview(text) {
+  return normalizeAr(text).split(" ").some(word => /^(?:و|ف)?(?:لا|ليس|ليست|لست|لم|لن)$/.test(word));
+}
+
 export class Translator {
   constructor() {
     this.cache = {};         // normalized text -> items
@@ -74,7 +78,13 @@ export class Translator {
   }
 
   async translate(text) {
+    this.warning = "";
     const key = normalizeAr(text);
+    if (needsNegationReview(text)) {
+      this.lastSource = "review";
+      this.warning = "تحتاج هذه الجملة إلى مراجعة؛ القاموس الحالي لا يمثّل النفي بأمان.";
+      return [];
+    }
     if (this.cache[key]) { this.lastSource = "cache"; return this.cache[key]; }
 
     if (this.serverKey) {

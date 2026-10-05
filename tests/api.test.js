@@ -59,3 +59,19 @@ test('offline backend resolution disables API calls', async () => {
     await assert.rejects(api.apiRequest('gloss', { method: 'POST' }), /No AI backend/);
   });
 });
+
+test('caller cancellation aborts the request without trying a second backend', async () => {
+  const controller = new AbortController();
+  const calls = [];
+  await withApi(async (url, options) => {
+    calls.push(url);
+    if (url.endsWith('health')) return json({ ok: true, key: true });
+    return new Promise((resolve, reject) => {
+      options.signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')));
+      controller.abort();
+    });
+  }, async api => {
+    await assert.rejects(api.apiRequest('asr', { method: 'POST', signal: controller.signal }), /Aborted/);
+    assert.equal(calls.includes('/api/health'), false);
+  });
+});

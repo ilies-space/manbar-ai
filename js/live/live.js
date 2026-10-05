@@ -5,6 +5,7 @@ import { buildRig } from "./rig.js";
 import { SignPlayer } from "./player.js";
 import { Translator, normalizeAr } from "./translate.js";
 import { pickAdapter } from "./asr.js";
+import { runOnboarding, markLive, enterMobileMode, mobileFollowLoop } from "./flow.js";
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -51,6 +52,7 @@ async function boot() {
     const segs = params.get("wp").split("|").map(parse);
     const pose = { R: segs[0].p, palmR: segs[0].palm, handR: segs[0].hand, handL: "rest" };
     if (segs[1]) { pose.L = segs[1].p; pose.palmL = segs[1].palm; pose.handL = segs[1].hand; }
+    document.querySelector("#onboard")?.remove();
     player.testPose(pose);
     $("#caption").textContent = params.get("wp");
     return;
@@ -58,6 +60,7 @@ async function boot() {
 
   // debug freeze: live.html?sign=GLOSS_DUA&t=0.7
   if (params.get("sign")) {
+    document.querySelector("#onboard")?.remove();
     player.freeze(params.get("sign"), parseFloat(params.get("t") || "0.6"));
     $("#caption").textContent = params.get("sign");
     return;
@@ -89,18 +92,20 @@ async function boot() {
     $("#flagAuto").hidden = !flag;
   }
 
-  async function perform(text, { flag = false } = {}) {
-    const items = await translator.translate(text);
-    $("#chipEngine").textContent = translator.lastSource === "rules"
-      ? "ترجمة: قاموس محلي"
-      : (translator.api?.name === "n8n" ? "ترجمة: OpenAI عبر n8n" : "ترجمة: OpenAI محلي");
+  let performanceRequest = 0;
+
+  function performItems(text, items, { flag = false } = {}) {
+    $("#mobileSentence").textContent = text;
+    $("#mobileSentence").hidden = !text;
     player.clear();
     showPlan(items, { flag });
-    // one chip per queue item for highlight simplicity: letters share the word chip
-    const expanded = [];
-    for (const it of items) expanded.push(it);
-    player.enqueue(expanded);
-    // re-map chips to queue items (letters of a word map to same chip)
+    if (!items.length) {
+      $("#caption").textContent = text;
+      $("#srcBadge").textContent = translator.warning || "لا تتوفر إشارات لهذه الجملة";
+      $("#flagAuto").hidden = false;
+      return;
+    }
+    player.enqueue(items.slice());
     const map = [];
     items.forEach((it, idx) => {
       if (it.kind === "spell") { for (const _ of [...it.word]) map.push(idx); }
@@ -117,6 +122,27 @@ async function boot() {
         ? `تهجئة: ${item.word} — «${item.ch}»`
         : (signs[item.id]?.ar || "");
     };
+  }
+
+  function pushLive(event) {
+    if (params.get("view") === "mobile") return;
+    fetch("/api/live/push", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ m: state.mosqueIdx ?? 0, event })
+    }).catch(() => {});
+  }
+
+  async function perform(text, { flag = false } = {}) {
+    const request = ++performanceRequest;
+    const items = await translator.translate(text);
+    if (request !== performanceRequest) return;
+    $("#chipEngine").textContent = translator.lastSource === "review"
+      ? "ترجمة: بحاجة إلى مراجعة"
+      : translator.lastSource === "rules"
+      ? "ترجمة: قاموس محلي"
+      : (translator.api?.name === "n8n" ? "ترجمة: OpenAI عبر n8n" : "ترجمة: OpenAI محلي");
+    performItems(text, items, { flag });
+    pushLive({ type: "perform", text, items, flag });
     $("#srcBadge").textContent =
       translator.lastSource === "api" ? "ترجمة نموذج لغوي" :
       translator.lastSource === "cache" ? "من الذاكرة" : "قاموس محلي";
@@ -124,15 +150,22 @@ async function boot() {
 
   // ---- prepared sentences list -------------------------------------------
   const sentences = (typeof KHUTBAH !== "undefined" ? KHUTBAH.segments : [])
-    .map(s => ({ id: s.id, text: s.type === "verse" ? s.original : (s.original || "") , plain: s.type === "verse" ? s.original : s.original }));
+    .map(s => ({
+      text: s.type === "verse" ? `${s.original} ${s.verse.text}` : s.original,
+      display: s.type === "verse" ? `${s.original} ﴿…﴾ ${s.verse.source}` : s.original
+    }));
   const list = $("#sentenceList");
-  sentences.forEach((s, i) => {
-    const li = document.createElement("button");
-    li.className = "sent";
-    li.textContent = s.text;
-    li.addEventListener("click", () => { selectSentence(i); perform(s.text); });
-    list.appendChild(li);
-  });
+  function rebuildList() {
+    list.innerHTML = "";
+    sentences.forEach((s, i) => {
+      const li = document.createElement("button");
+      li.className = "sent";
+      li.textContent = s.display;
+      li.addEventListener("click", () => { selectSentence(i); perform(s.text); });
+      list.appendChild(li);
+    });
+  }
+  rebuildList();
   function selectSentence(i) {
     state.pointer = i;
     [...list.children].forEach((el, j) => el.classList.toggle("on", j === i));
@@ -170,12 +203,14 @@ async function boot() {
     // normalized shared-word ratio against sentences from pointer forward
     const words = new Set(normalizeAr(text).split(" ").filter(w => w.length > 2));
     if (!words.size) return -1;
-    let best = -1, bestScore = 0.49;
+    let best = -1, bestScore = 0.75;
     for (let i = Math.max(0, state.pointer); i < Math.min(sentences.length, state.pointer + 4 || 4); i++) {
       const sw = normalizeAr(sentences[i].text).split(" ").filter(w => w.length > 2);
       if (!sw.length) continue;
-      const hit = sw.filter(w => words.has(w)).length / sw.length;
-      if (hit > bestScore) { bestScore = hit; best = i; }
+      const shared = new Set(sw.filter(w => words.has(w))).size;
+      const hit = shared / new Set(sw).size;
+      const inputCoverage = shared / words.size;
+      if (inputCoverage >= 0.75 && hit > bestScore) { bestScore = hit; best = i; }
     }
     return best;
   }
@@ -206,7 +241,7 @@ async function boot() {
       return;
     }
     state.adapter = await pickAdapter({
-      onText: (t, { final }) => { $("#interim").textContent = t; if (final) { $("#interim").textContent = ""; onFinalText(t); } },
+      onText: (t, { final }) => { $("#interim").textContent = t; if (final) { $("#interim").textContent = ""; return onFinalText(t); } },
       onState: setMicState
     });
     if (!state.adapter) { setMicState("error", "لا يوجد مدخل صوت مدعوم"); return; }
@@ -216,7 +251,7 @@ async function boot() {
       state.micOn = true;
       micBtn.textContent = "أوقف الاستماع";
       micBtn.classList.add("live");
-    } catch (e) { setMicState("error", "رفض إذن الميكروفون"); }
+    } catch (e) { setMicState("error", e.name === "NotAllowedError" ? "رفض إذن الميكروفون" : e.message); }
   });
 
   // VU meter
@@ -232,6 +267,53 @@ async function boot() {
       document.querySelectorAll("#micMode button").forEach(x => x.classList.toggle("on", x === b));
     });
   });
+
+  // ---- product flow: phone viewer (via QR) or TV onboarding -----------------
+  if (params.get("view") === "mobile") {
+    document.querySelector("#onboard")?.remove();
+    const mIdx = parseInt(params.get("m") || "0", 10) || 0;
+    enterMobileMode(mIdx);
+    // synced mode: follow the mosque screen's session through the relay
+    let synced = false, fallbackStarted = false;
+    const startFallback = () => {
+      if (fallbackStarted || synced) return;
+      fallbackStarted = true;
+      $("#mobileTicker").textContent = "بث تجريبي مستقل";
+      mobileFollowLoop(t => perform(t), () => player.busy, (i, n) => {
+        $("#mobileTicker").textContent = `بث تجريبي مستقل · ${i + 1}/${n}`;
+      });
+    };
+    try {
+      const es = new EventSource(`/api/live/stream?m=${mIdx}`);
+      es.onmessage = ev => {
+        try {
+          const e = JSON.parse(ev.data);
+          if (e.type === "perform") {
+            synced = true;
+            $("#mobileTicker").textContent = "متزامن مع شاشة المسجد";
+            performItems(e.text, e.items || [], { flag: !!e.flag });
+          }
+        } catch {}
+      };
+      es.onerror = () => { es.close(); startFallback(); };
+      setTimeout(startFallback, 5000);   // no screen session -> labeled demo loop
+      $("#mobileTicker").textContent = "بانتظار بث الشاشة…";
+    } catch { startFallback(); }
+  } else {
+    const setup = await runOnboarding();
+    state.mosqueIdx = setup.mosqueIdx;
+    if (setup.khutbah) {
+      sentences.length = 0;
+      setup.khutbah.sentences.forEach(t => sentences.push({ text: t, display: t }));
+      rebuildList();
+      document.querySelector("#paneSent .pane-hint").textContent =
+        `خطبة «${setup.khutbah.title}» المرفوعة — اضغط جملة ليترجمها المترجم الرقمي.`;
+    }
+    await markLive(setup);
+    const btnSetup = $("#btnSetup");
+    btnSetup.hidden = false;
+    btnSetup.addEventListener("click", () => location.reload());
+  }
 }
 
 boot().catch(e => {

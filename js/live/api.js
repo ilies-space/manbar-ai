@@ -40,15 +40,26 @@ export async function apiRequest(kind, options) {
   const backend = await apiResolve();
   async function request(target) {
     if (!target.key || !target[kind]) throw new Error("No AI backend available");
-    const response = await fetch(target[kind], { ...options, signal: AbortSignal.timeout(30000) });
+    const controller = new AbortController();
+    const cancel = () => controller.abort();
+    if (options.signal?.aborted) cancel();
+    else options.signal?.addEventListener("abort", cancel, { once: true });
+    const timer = setTimeout(cancel, 30000);
+    let response, data;
+    try {
+      response = await fetch(target[kind], { ...options, signal: controller.signal });
+      data = await response.json();
+    } finally {
+      clearTimeout(timer);
+      options.signal?.removeEventListener("abort", cancel);
+    }
     if (!response.ok) throw new Error(`Backend request failed: ${response.status}`);
-    const data = await response.json();
     const valid = kind === "gloss" ? Array.isArray(data.glosses) : typeof data.text === "string";
     if (!valid) throw new Error("Invalid backend response");
     return data;
   }
   try { return await request(backend); } catch (error) {
-    if (backend.name !== "n8n") throw error;
+    if (options.signal?.aborted || backend.name !== "n8n") throw error;
     const local = await localBackend();
     const data = await request(local);
     resolved = local;

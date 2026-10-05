@@ -5,6 +5,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
 
 // load .env if present (gitignored; keeps the key out of shell history)
 try {
@@ -15,7 +16,7 @@ try {
 } catch {}
 
 const PORT = process.env.PORT || 8080;
-const HOST = process.env.HOST || "127.0.0.1";
+const HOST = process.env.HOST || "0.0.0.0";   // LAN by default: the QR hand-off needs phone access; set HOST=127.0.0.1 to restrict
 const KEY = process.env.OPENAI_API_KEY || "";
 const ROOT = __dirname;
 const CACHE_FILE = path.join(ROOT, "data", "gloss-cache.json");
@@ -131,11 +132,49 @@ async function handleAsr(req, res) {
   send(res, 200, { text: data.text || "", ms: Date.now() - t0 });
 }
 
+// ---- live session relay (TV screen -> phones on the same session) ---------
+const liveChannels = new Map();   // mosque index -> Set<ServerResponse>
+
+function handleLiveStream(req, res, mosque) {
+  res.writeHead(200, {
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache",
+    "Connection": "keep-alive",
+    "Access-Control-Allow-Origin": "*"
+  });
+  res.write("retry: 2000\n\n");
+  if (!liveChannels.has(mosque)) liveChannels.set(mosque, new Set());
+  const channel = liveChannels.get(mosque);
+  channel.add(res);
+  const ping = setInterval(() => res.write(": ping\n\n"), 20000);
+  req.on("close", () => { clearInterval(ping); channel.delete(res); });
+}
+
+async function handleLivePush(req, res) {
+  const { m, event } = JSON.parse((await readBody(req)).toString() || "{}");
+  const channel = liveChannels.get(String(m ?? "0"));
+  let listeners = 0;
+  if (channel) {
+    const frame = `data: ${JSON.stringify(event || {})}\n\n`;
+    for (const client of channel) { client.write(frame); listeners++; }
+  }
+  send(res, 200, { ok: true, listeners });
+}
+
 const server = http.createServer(async (req, res) => {
   try {
-    if (req.url === "/api/health") return send(res, 200, { ok: true, key: !!KEY, vocab: VOCAB.length });
+    if (req.url === "/api/health") {
+      const ip = Object.values(os.networkInterfaces()).flat()
+        .find(i => i && i.family === "IPv4" && !i.internal)?.address || null;
+      return send(res, 200, { ok: true, key: !!KEY, vocab: VOCAB.length, ip });
+    }
     if (req.method === "POST" && req.url === "/api/gloss") return await handleGloss(req, res);
     if (req.method === "POST" && req.url === "/api/asr") return await handleAsr(req, res);
+    if (req.url.startsWith("/api/live/stream")) {
+      const mosque = new URL(req.url, "http://x").searchParams.get("m") || "0";
+      return handleLiveStream(req, res, mosque);
+    }
+    if (req.method === "POST" && req.url === "/api/live/push") return await handleLivePush(req, res);
 
     // static
     let p = decodeURIComponent((req.url || "/").split("?")[0]);
