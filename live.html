@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>منبر — المترجم الحي</title>
+<meta name="description" content="النموذج الحي: صوت الإمام يتحول إلى لغة إشارة تؤديها الشخصية الرقمية لحظياً." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 64'%3E%3Crect width='48' height='64' rx='8' fill='%23120C2E'/%3E%3Cpath d='M8 56 V28 C8 14 24 6 24 6 C24 6 40 14 40 28 V56' fill='none' stroke='%238B7CF6' stroke-width='2.5'/%3E%3Cline x1='24' y1='6' x2='24' y2='24' stroke='%238B7CF6' stroke-width='2'/%3E%3Ccircle cx='24' cy='30' r='5' fill='none' stroke='%238B7CF6' stroke-width='2'/%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Amiri:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/styles.css" />
+<link rel="stylesheet" href="css/live.css" />
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+</head>
+<body class="live-body">
+
+<header class="live-top">
+  <a class="brand" href="index.html">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 48 64" fill="none" stroke="currentColor"><path d="M6 60 V28 C6 13 24 5 24 5 C24 5 42 13 42 28 V60" stroke-width="2.5"/><line x1="24" y1="5" x2="24" y2="23" stroke-width="2"/><circle cx="24" cy="29" r="5" stroke-width="2"/></svg>
+    </span>
+    <span class="brand-name">منبر</span>
+  </a>
+  <h1>المترجم الحي <span class="muted">· نموذج تجريبي</span></h1>
+  <div class="live-chips">
+    <span class="pill" id="chipEngine">…</span>
+    <span class="pill" id="chipVocab">…</span>
+    <span class="pill" id="chipFingers">…</span>
+    <span class="pill" id="chipAsr">—</span>
+    <span class="pill" id="chipFps">—</span>
+  </div>
+</header>
+
+<main class="live-grid">
+  <section class="stage-panel">
+    <canvas id="stage3d"></canvas>
+    <p id="bootError" class="boot-error" hidden></p>
+    <span class="stage-flag">حركات أولية من الفريق — بانتظار اعتماد مترجم معتمد</span>
+    <span class="stage-flag warn" id="flagAuto" hidden>ترجمة آلية غير معتمدة</span>
+    <div class="stage-caption">
+      <div id="glossStrip" class="gloss-strip"></div>
+      <p id="caption"></p>
+      <span class="pill" id="srcBadge"></span>
+    </div>
+  </section>
+
+  <aside class="side-panel">
+    <div class="tabs">
+      <button class="tab on" data-pane="paneSent">جمل الخطبة</button>
+      <button class="tab" data-pane="paneFree">نص حر</button>
+      <button class="tab" data-pane="paneMic">الميكروفون</button>
+    </div>
+
+    <div class="pane" id="paneSent">
+      <p class="pane-hint">خطبة «التقوى أساس الكرامة» المجهّزة — اضغط جملة ليترجمها المترجم الرقمي.</p>
+      <div id="sentenceList" class="sent-list"></div>
+    </div>
+
+    <div class="pane" id="paneFree" hidden>
+      <p class="pane-hint">اكتب أي جملة عربية — تُحوَّل إلى تسلسل إشارات، والكلمة خارج المفردات تُهجّى.</p>
+      <textarea id="freeText" rows="4" placeholder="اكتب هنا…">اتقوا الله وأحسنوا إلى الناس</textarea>
+      <button class="btn btn-gold" id="btnSay">ترجم إلى الإشارة</button>
+    </div>
+
+    <div class="pane" id="paneMic" hidden>
+      <p class="pane-hint">صوت الإمام من الميكروفون: تفريغ، ثم مطابقة مع الخطبة المجهّزة أو ترجمة فورية موسومة.</p>
+      <div class="mic-row">
+        <button class="btn btn-gold" id="btnMic">ابدأ الاستماع</button>
+        <span class="pill" id="micStatus">متوقف</span>
+      </div>
+      <div class="vu-track"><div id="vu"></div></div>
+      <div class="mode-toggle" id="micMode">
+        <button data-mode="prepared" class="on">تتبع الخطبة المجهّزة</button>
+        <button data-mode="improvised">مرتجل (آلي)</button>
+      </div>
+      <p class="interim" id="interim"></p>
+      <div id="transcript" class="transcript"></div>
+    </div>
+
+    <footer class="side-foot">
+      النموذج يعمل محلياً: <code dir="ltr">OPENAI_API_KEY=… node server.js</code> —
+      وبدون مفتاح يستخدم القاموس المحلي وWeb Speech.
+    </footer>
+  </aside>
+</main>
+
+<script src="js/data.js"></script>
+<script type="module" src="js/live/live.js"></script>
+</body>
+</html>

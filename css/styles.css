@@ -811,3 +811,8 @@ body[data-view="screen"] .nav a.active { background: var(--gold); color: var(--g
 @media (max-width: 960px) {
   .signer-panel { width: min(250px, 68vw); margin-inline: auto; }
 }
+
+/* live prototype link */
+.nav .nav-live { border: 1.5px solid var(--gold); color: var(--gold-deep); opacity: 1; font-weight: 700; }
+.nav .nav-live:hover { background: var(--gold); color: var(--g950); }
+body[data-view="screen"] .nav .nav-live { color: var(--gold-soft); }

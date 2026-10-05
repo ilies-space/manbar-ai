@@ -54,5 +54,12 @@
     "author": "Uprising Man",
     "license": "CC0",
     "source": "https://commons.wikimedia.org/wiki/File:Alphabets_-_Ghanaian_Sign_Language.webm"
+  },
+  {
+    "file": "assets/character/translator.glb",
+    "title": "Saudi character, converted and rigged for the live demo",
+    "author": null,
+    "license": "Public redistribution permission not yet documented",
+    "source": null
   }
 ]

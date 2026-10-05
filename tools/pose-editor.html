@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>منبر — محرر الإشارات</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="../css/styles.css" />
+<link rel="stylesheet" href="../css/live.css" />
+<style>
+  body { background: var(--g950); }
+  .ed-grid { display: grid; grid-template-columns: 1fr 390px; gap: 14px; padding: 14px; height: calc(100vh - 70px); }
+  .ed-side { overflow-y: auto; border: 1px solid rgba(139,124,246,.25); border-radius: 14px; padding: 14px; background: rgba(18,12,46,.65); }
+  .ed-side h3 { font-size: 14px; color: var(--gold-soft); margin: 14px 0 8px; }
+  .row { display: grid; grid-template-columns: 56px 1fr 64px; gap: 8px; align-items: center; margin-bottom: 6px; font-size: 12px; }
+  .row input[type=range] { width: 100%; accent-color: #8B7CF6; }
+  .row input[type=number] { width: 100%; background: rgba(243,241,251,.07); color: var(--cream); border: 1px solid rgba(243,241,251,.15); border-radius: 6px; padding: 3px 6px; font: inherit; font-size: 11.5px; }
+  select, .ed-side button, .ed-side input[type=text] {
+    font: inherit; font-size: 12.5px; background: rgba(243,241,251,.07); color: var(--cream);
+    border: 1px solid rgba(243,241,251,.18); border-radius: 8px; padding: 6px 10px;
+  }
+  .ed-side button { cursor: pointer; } .ed-side button:hover { border-color: var(--gold); }
+  .btn-accent { background: var(--gold) !important; color: var(--g950) !important; font-weight: 700; }
+  textarea { width: 100%; height: 150px; direction: ltr; font: 11px/1.5 monospace; background: #0b0820; color: #b7abfa; border: 1px solid rgba(139,124,246,.3); border-radius: 8px; padding: 8px; }
+  .frames { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .frames button.on { background: var(--gold); color: var(--g950); }
+  .mini { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 8px; }
+</style>
+</head>
+<body class="live-body">
+<header class="live-top">
+  <a class="brand" href="../live.html"><span class="brand-name">منبر</span></a>
+  <h1>محرر الإشارات <span class="muted">· أداة الفريق</span></h1>
+  <div class="live-chips"><span class="pill">عدّل، شغّل، ثم انسخ JSON إلى signs.json</span></div>
+</header>
+<main class="ed-grid">
+  <section class="stage-panel"><canvas id="stage3d"></canvas></section>
+
+  <aside class="ed-side">
+    <div class="mini">
+      <select id="signSel"></select>
+      <button id="btnNew">إشارة جديدة</button>
+      <button id="btnPlay" class="btn-accent">▶ تشغيل</button>
+    </div>
+    <div class="mini">
+      <label>المعنى: <input type="text" id="arName" style="width:110px" /></label>
+      <label>المدة: <input type="number" id="durInp" step="0.1" min="0.4" max="4" style="width:64px" /></label>
+    </div>
+
+    <h3>الإطارات الزمنية</h3>
+    <div class="frames" id="frameBtns"></div>
+    <div class="mini">
+      <button id="btnAddFrame">+ إطار</button>
+      <button id="btnDelFrame">حذف الإطار</button>
+      <label>t = <input type="number" id="frameT" step="0.05" style="width:64px" /></label>
+    </div>
+
+    <div id="handsUi"></div>
+
+    <h3>الرأس (اختياري)</h3>
+    <div id="headUi"></div>
+
+    <h3>JSON</h3>
+    <div class="mini">
+      <button id="btnExport" class="btn-accent">تصدير هذه الإشارة</button>
+      <button id="btnExportAll">تصدير الكل</button>
+      <button id="btnCopy">نسخ</button>
+    </div>
+    <textarea id="jsonOut" dir="ltr"></textarea>
+  </aside>
+</main>
+
+<script type="importmap">
+{ "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import { createStage } from "../js/live/scene.js";
+import { buildRig } from "../js/live/rig.js";
+import { SignPlayer } from "../js/live/player.js";
+
+const $ = s => document.querySelector(s);
+const HAND_PRESETS = ["rest","flat","fist","index-up","pinch","spread"];
+const PALMS = ["in","up","down","forward","out"];
+
+const [stage, signs, handshapes] = await Promise.all([
+  createStage($("#stage3d"), { modelUrl: "../assets/character/translator.glb", controls: true }),
+  fetch("../assets/lexicon/signs.json").then(r => r.json()),
+  fetch("../assets/lexicon/handshapes.json").then(r => r.json())
+]);
+const NOTE = signs._note; delete signs._note;
+const rig = buildRig(stage.character);
+const player = new SignPlayer(rig, signs, handshapes, stage.character);
+stage.onTick(dt => player.update(dt));
+
+let cur = Object.keys(signs)[0];
+let fi = 0;
+
+function frame() { return signs[cur].frames[fi]; }
+
+function rebuildSignSel() {
+  $("#signSel").innerHTML = Object.keys(signs)
+    .map(k => `<option value="${k}" ${k===cur?"selected":""}>${k} — ${signs[k].ar}</option>`).join("");
+}
+function rebuildFrames() {
+  const fb = $("#frameBtns");
+  fb.innerHTML = "";
+  signs[cur].frames.forEach((f, i) => {
+    const b = document.createElement("button");
+    b.textContent = `${i+1} (${f.t}s)`;
+    b.className = i === fi ? "on" : "";
+    b.onclick = () => { fi = i; refresh(); };
+    fb.appendChild(b);
+  });
+  $("#frameT").value = frame().t;
+  $("#arName").value = signs[cur].ar;
+  $("#durInp").value = signs[cur].dur;
+}
+
+function sliderRow(label, min, max, step, val, oninput) {
+  const row = document.createElement("div");
+  row.className = "row";
+  row.innerHTML = `<span>${label}</span><input type="range" min="${min}" max="${max}" step="${step}" value="${val}"><input type="number" step="${step}" value="${val}">`;
+  const [rng, num] = row.querySelectorAll("input");
+  rng.oninput = () => { num.value = rng.value; oninput(parseFloat(rng.value)); apply(); };
+  num.oninput = () => { rng.value = num.value; oninput(parseFloat(num.value)); apply(); };
+  return row;
+}
+
+function rebuildHands() {
+  const host = $("#handsUi");
+  host.innerHTML = "";
+  for (const side of ["R", "L"]) {
+    const h = document.createElement("h3");
+    h.textContent = side === "R" ? "اليد اليمنى" : "اليد اليسرى";
+    host.appendChild(h);
+    const f = frame();
+    if (!f[side]) {
+      const add = document.createElement("button");
+      add.textContent = "تفعيل هذه اليد في الإطار";
+      add.onclick = () => { f[side] = side === "R" ? [0.15, 0.05, 0.35] : [-0.15, 0.05, 0.35]; f["palm"+side] = "in"; f["hand"+side] = "flat"; refresh(); };
+      host.appendChild(add);
+      continue;
+    }
+    const axes = [["يمين/يسار", -0.45, 0.45], ["ارتفاع", -0.6, 0.55], ["أمام", 0.05, 0.55]];
+    axes.forEach(([lab, mn, mx], ai) => {
+      host.appendChild(sliderRow(lab, mn, mx, 0.005, f[side][ai], v => f[side][ai] = v));
+    });
+    const selRow = document.createElement("div");
+    selRow.className = "mini";
+    selRow.innerHTML = `راحة اليد: <select>${PALMS.map(p=>`<option ${f["palm"+side]===p?"selected":""}>${p}</option>`).join("")}</select>
+      شكل الأصابع: <select>${HAND_PRESETS.map(p=>`<option ${f["hand"+side]===p?"selected":""}>${p}</option>`).join("")}</select>`;
+    const [palmSel, handSel] = selRow.querySelectorAll("select");
+    palmSel.onchange = () => { f["palm"+side] = palmSel.value; apply(); };
+    handSel.onchange = () => { f["hand"+side] = handSel.value; apply(); };
+    host.appendChild(selRow);
+  }
+}
+
+function rebuildHead() {
+  const host = $("#headUi");
+  host.innerHTML = "";
+  const f = frame();
+  f.euler = f.euler || {};
+  f.euler.Head = f.euler.Head || [0, 0, 0];
+  [["إيماء", -25, 15], ["التفات", -40, 40]].forEach(([lab, mn, mx], ai) => {
+    host.appendChild(sliderRow(lab, mn, mx, 1, f.euler.Head[ai], v => f.euler.Head[ai] = v));
+  });
+}
+
+function apply() {
+  player.clear();
+  player.freeze(cur, frame().t + 0.001);
+  player._frozen = true;
+}
+function refresh() { rebuildSignSel(); rebuildFrames(); rebuildHands(); rebuildHead(); apply(); }
+
+$("#signSel").onchange = e => { cur = e.target.value; fi = 0; refresh(); };
+$("#frameT").oninput = e => { frame().t = parseFloat(e.target.value) || 0; rebuildFrames(); apply(); };
+$("#arName").oninput = e => signs[cur].ar = e.target.value;
+$("#durInp").oninput = e => signs[cur].dur = parseFloat(e.target.value) || 1;
+$("#btnAddFrame").onclick = () => {
+  const f = JSON.parse(JSON.stringify(frame()));
+  f.t = Math.min(signs[cur].dur, frame().t + 0.4);
+  signs[cur].frames.splice(fi + 1, 0, f);
+  fi++; refresh();
+};
+$("#btnDelFrame").onclick = () => {
+  if (signs[cur].frames.length <= 1) return;
+  signs[cur].frames.splice(fi, 1);
+  fi = Math.max(0, fi - 1); refresh();
+};
+$("#btnNew").onclick = () => {
+  const id = prompt("معرف الإشارة (GLOSS_...)", "GLOSS_JADID");
+  if (!id) return;
+  signs[id] = { ar: "جديد", dur: 1.2, frames: [{ t: 0, R: [0.15, 0.05, 0.35], palmR: "in", handR: "flat" }] };
+  cur = id; fi = 0; refresh();
+};
+$("#btnPlay").onclick = () => {
+  player._frozen = false;
+  player.clear();
+  player.enqueue([{ kind: "gloss", id: cur }]);
+};
+$("#btnExport").onclick = () => { $("#jsonOut").value = JSON.stringify({ [cur]: signs[cur] }, null, 1); };
+$("#btnExportAll").onclick = () => { $("#jsonOut").value = JSON.stringify({ _note: NOTE, ...signs }, null, 1); };
+$("#btnCopy").onclick = () => navigator.clipboard.writeText($("#jsonOut").value);
+
+refresh();
+window.__editor = { signs, player, rig };
+</script>
+</body>
+</html>

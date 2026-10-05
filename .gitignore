@@ -10,3 +10,22 @@ docs/
 # tooling
 node_modules/
 *.log
+
+# 3d source pack (only the converted character ships)
+saudi-man-3d-character-rigged/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# local guidance and pitch preparation
+AGENTS.md
+output/
+tmp/
+
+# generated transcripts and translation cache
+data/gloss-cache.json
+
+# working model backups
+assets/character/*-backup.glb
