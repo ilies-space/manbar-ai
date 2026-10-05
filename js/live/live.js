@@ -36,7 +36,9 @@ async function boot() {
   // status chips
   $("#chipVocab").textContent = `${Object.keys(signs).length} إشارة`;
   $("#chipFingers").textContent = rig.hasFingers ? "أصابع: نعم" : "أصابع: قريباً";
-  $("#chipEngine").textContent = translator.serverKey ? "ترجمة: OpenAI + قاموس" : "ترجمة: قاموس محلي";
+  $("#chipEngine").textContent = translator.serverKey
+    ? (translator.api?.name === "n8n" ? "ترجمة: OpenAI عبر n8n" : "ترجمة: OpenAI محلي")
+    : "ترجمة: قاموس محلي";
   setInterval(() => { $("#chipFps").textContent = `${stage.getFps()} fps`; }, 1200);
 
   // waypoint probe: live.html?wp=0.2,0.05,0.35,forward   (right hand xyz+palm)
@@ -89,6 +91,9 @@ async function boot() {
 
   async function perform(text, { flag = false } = {}) {
     const items = await translator.translate(text);
+    $("#chipEngine").textContent = translator.lastSource === "rules"
+      ? "ترجمة: قاموس محلي"
+      : (translator.api?.name === "n8n" ? "ترجمة: OpenAI عبر n8n" : "ترجمة: OpenAI محلي");
     player.clear();
     showPlan(items, { flag });
     // one chip per queue item for highlight simplicity: letters share the word chip

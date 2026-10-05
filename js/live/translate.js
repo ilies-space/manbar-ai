@@ -1,5 +1,7 @@
-// text -> gloss sequence. Order: cache -> OpenAI via local proxy -> rule-based
-// dictionary (always works offline, keeps the hosted demo alive keyless).
+// text -> gloss sequence. Order: cache -> OpenAI (n8n webhook or local proxy)
+// -> rule-based dictionary (always works offline).
+
+import { apiResolve, apiRequest, apiCurrent } from "./api.js";
 
 const STOP = new Set(["في","من","على","ان","أن","إن","و","يا","ما","لا","الى","إلى","عن","قد","ثم","او","أو","هو","هي","كل","لكم","لكم،","بعد","أما","اما","التي","الذي","ايها","أيها"]);
 
@@ -67,10 +69,8 @@ export class Translator {
 
   async init() {
     // Session cache stays in memory; saved transcripts are not public assets.
-    try {
-      const h = await fetch("/api/health").then(r => r.json());
-      this.serverKey = !!h.key;
-    } catch { this.serverKey = false; }
+    this.api = await apiResolve();
+    this.serverKey = this.api.key && !!this.api.gloss;
   }
 
   async translate(text) {
@@ -79,13 +79,13 @@ export class Translator {
 
     if (this.serverKey) {
       try {
-        const r = await fetch("/api/gloss", {
+        const d = await apiRequest("gloss", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text })
         });
-        if (r.ok) {
-          const d = await r.json();
+        {
+          this.api = apiCurrent();
           const items = (d.glosses || []).map(g =>
             typeof g === "string" ? { kind: "gloss", id: g } : { kind: "spell", word: g.spell }
           ).filter(it => it.kind === "spell" || it.id);

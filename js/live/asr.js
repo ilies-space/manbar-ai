@@ -1,5 +1,7 @@
-// ASR adapters. Whisper (3s chunks via local proxy) is the accurate default;
-// Chrome Web Speech (ar-SA) is the keyless fallback. Same interface.
+// ASR adapters. Whisper (3s chunks via the resolved backend) is the accurate
+// default; Chrome Web Speech (ar-SA) is the keyless fallback. Same interface.
+
+import { apiResolve, apiRequest } from "./api.js";
 
 export class WebSpeechAdapter {
   constructor({ onText, onState }) {
@@ -65,11 +67,10 @@ export class WhisperChunkAdapter {
       this._busy++;
       this.onState("transcribing");
       try {
-        const r = await fetch("/api/asr", { method: "POST", headers: { "Content-Type": "audio/webm" }, body: blob });
-        const d = await r.json();
-        if (d.text && d.text.trim()) this.onText(d.text.trim(), { final: true });
+        const d = await apiRequest("asr", { method: "POST", headers: { "Content-Type": "audio/webm" }, body: blob });
+        if (this._live && d.text.trim()) this.onText(d.text.trim(), { final: true });
       } catch (e) {
-        this.onState("error", String(e));
+        if (this._live) this.onState("error", String(e));
       } finally {
         this._busy--;
         if (this._live && !this._busy) this.onState("listening");
@@ -94,10 +95,8 @@ export class WhisperChunkAdapter {
 }
 
 export async function pickAdapter(opts) {
-  try {
-    const h = await fetch("/api/health").then(r => r.json());
-    if (h.key) return new WhisperChunkAdapter(opts);
-  } catch {}
+  const api = await apiResolve();
+  if (api.key && api.asr) return new WhisperChunkAdapter(opts);
   if (WebSpeechAdapter.supported()) return new WebSpeechAdapter(opts);
   return null;
 }
