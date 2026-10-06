@@ -7,7 +7,7 @@ import { Translator, normalizeAr, ruleTranslate, needsNegationReview, negatedTra
 import { versesIn, ayahTranslation } from "./quran.js";
 import { pickAdapter } from "./asr.js";
 import { runOnboarding, markLive, getMosques } from "./flow.js";
-import { getSettings, saveSettings } from "./api.js";
+import { getSettings, saveSettings, apiRequest } from "./api.js";
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -455,8 +455,11 @@ async function boot() {
       const pre = DEMO[normalizeAr(ev.text)]?.[to];
       if (pre) return { text: pre, src: "ترجمة آلية مُعدّة مسبقاً" };
       try {
-        const r = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: ev.text, to }) });
-        if (r.ok) { const d = await r.json(); if (d.text) return { text: d.text, src: "ترجمة آلية فورية" }; }
+        const d = await apiRequest("translate", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: ev.text, to })
+        });
+        if (d.text) return { text: d.text, src: "ترجمة آلية فورية" };
       } catch {}
       return null;
     }

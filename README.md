@@ -110,7 +110,7 @@ node tools/make_demo_audio.cjs     # يولّد assets/audio/khutbah_01..11.mp3 
 
 | الطبقة | مكان المفتاح | ملاحظات |
 |---|---|---|
-| خدمة n8n المستضافة | على الخادم — لا مفتاح في المتصفح | الافتراضي؛ مسارات `manbar-health/gloss/asr` تحت `https://vmi3364148.contaboserver.net/webhook/` |
+| خدمة n8n المستضافة | على الخادم — لا مفتاح في المتصفح | الافتراضي؛ مسارات `manbar-health/gloss/asr/translate/ocr` تحت `https://vmi3364148.contaboserver.net/webhook/` |
 | خادم محلي `server.js` | `.env` | احتياط + مزامنة SSE + بث QR على الشبكة المحلية + `/api/ocr` لـ«صوّر خطبتك» |
 | وضع مباشر (متصفح ← OpenAI) | قائمة الإعدادات ⚙ | تجريبي؛ المفتاح في localStorage فقط |
 

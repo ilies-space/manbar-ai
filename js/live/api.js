@@ -70,7 +70,45 @@ async function directAsr(blob, key, signal) {
   if (!r.ok) throw new Error(`OpenAI: ${r.status}`);
   return { text: (await r.json()).text || "" };
 }
-const NONE = { name: "none", key: false, gloss: null, asr: null };
+const LANGS = { en: "English", fr: "French", ur: "Urdu", id: "Indonesian", tr: "Turkish", bn: "Bengali", ms: "Malay" };
+async function directTranslate(text, to, key, signal) {
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST", signal,
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4o-mini", temperature: 0.2, response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: `Translate this Friday khutbah sentence from Arabic into ${LANGS[to] || "English"} for live subtitles in a mosque. Be faithful and reverent; keep Islamic terms (Allah, taqwa, the Prophet). Do NOT translate Quran verses yourself: if the sentence contains one, translate only the surrounding words. Return JSON {"text":"..."} only.` },
+        { role: "user", content: String(text) }
+      ]
+    })
+  });
+  if (!r.ok) throw new Error(`OpenAI: ${r.status}`);
+  const d = await r.json();
+  let out = "";
+  try { out = String(JSON.parse(d.choices?.[0]?.message?.content || "{}").text || ""); } catch {}
+  return { text: out };
+}
+
+const OCR_PROMPT = "أنت تقرأ صورة لورقة خطبة جمعة مكتوبة بالعربية. انسخ النص كما هو مكتوب حرفياً دون إضافة أو حذف أو تصحيح أو تلخيص. حافظ على الآيات والأحاديث كما هي بتشكيلها إن وُجد. اجعل كل جملة في سطر مستقل. تجاهل أرقام الصفحات والهوامش والعناوين المتكررة. إن لم تجد نص خطبة فأعد نصاً فارغاً. أعد JSON فقط: {\"text\":\"...\"}";
+async function directOcr(image, key, signal) {
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST", signal,
+    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4o-mini", temperature: 0, response_format: { type: "json_object" },
+      messages: [{ role: "system", content: OCR_PROMPT },
+        { role: "user", content: [{ type: "image_url", image_url: { url: image, detail: "high" } }] }]
+    })
+  });
+  if (!r.ok) throw new Error(`OpenAI: ${r.status}`);
+  const d = await r.json();
+  let text = "";
+  try { text = String(JSON.parse(d.choices?.[0]?.message?.content || "{}").text || ""); } catch {}
+  return { text };
+}
+
+const NONE = { name: "none", key: false, gloss: null, asr: null, translate: null, ocr: null };
 let resolved = null;
 let resolving = null;
 
@@ -84,7 +122,7 @@ async function probe(url) {
 
 async function localBackend() {
   const health = await probe("/api/health");
-  return { name: "local", key: health.key === true, gloss: "/api/gloss", asr: "/api/asr" };
+  return { name: "local", key: health.key === true, gloss: "/api/gloss", asr: "/api/asr", translate: "/api/translate", ocr: "/api/ocr" };
 }
 
 export async function apiResolve() {
@@ -96,12 +134,13 @@ export async function apiResolve() {
         const health = await probe(`${base}/manbar-health`);
         if (health.key === true) return resolved = {
           name: "n8n", key: true,
-          gloss: `${base}/manbar-gloss`, asr: `${base}/manbar-asr`
+          gloss: `${base}/manbar-gloss`, asr: `${base}/manbar-asr`,
+          translate: `${base}/manbar-translate`, ocr: `${base}/manbar-ocr`
         };
       } catch {}
     }
     try { return resolved = await localBackend(); } catch {}
-    if (cfg.key) return resolved = { name: "direct", key: true, gloss: "direct", asr: "direct" };
+    if (cfg.key) return resolved = { name: "direct", key: true, gloss: "direct", asr: "direct", translate: "direct", ocr: "direct" };
     return resolved = { ...NONE };
   })();
   return resolving;
@@ -110,16 +149,18 @@ export async function apiResolve() {
 export function apiCurrent() { return resolved || { ...NONE }; }
 
 export async function apiRequest(kind, options) {
-  if (kind !== "gloss" && kind !== "asr") throw new Error("Unknown API operation");
+  if (!["gloss", "asr", "translate", "ocr"].includes(kind)) throw new Error("Unknown API operation");
   const backend = await apiResolve();
   async function request(target) {
     if (!target.key || !target[kind]) throw new Error("No AI backend available");
     if (target[kind] === "direct") {
       const key = getSettings().key;
       if (!key) throw new Error("No AI backend available");
-      return kind === "gloss"
-        ? directGloss(JSON.parse(options.body || "{}").text || "", key, options.signal)
-        : directAsr(options.body, key, options.signal);
+      if (kind === "asr") return directAsr(options.body, key, options.signal);
+      const body = JSON.parse(options.body || "{}");
+      if (kind === "gloss") return directGloss(body.text || "", key, options.signal);
+      if (kind === "translate") return directTranslate(body.text || "", body.to, key, options.signal);
+      return directOcr(body.image || "", key, options.signal);
     }
     const controller = new AbortController();
     const cancel = () => controller.abort();
@@ -136,6 +177,7 @@ export async function apiRequest(kind, options) {
     }
     if (!response.ok) throw new Error(`Backend request failed: ${response.status}`);
     const valid = kind === "gloss" ? Array.isArray(data.glosses) : typeof data.text === "string";
+    if (valid && kind === "ocr" && data.error) throw new Error("Backend OCR failed");
     if (!valid) throw new Error("Invalid backend response");
     return data;
   }
@@ -149,7 +191,7 @@ export async function apiRequest(kind, options) {
     } catch (localError) {
       const key = getSettings().key;
       if (!key) throw localError;
-      const direct = { name: "direct", key: true, gloss: "direct", asr: "direct" };
+      const direct = { name: "direct", key: true, gloss: "direct", asr: "direct", translate: "direct", ocr: "direct" };
       const data = await request(direct);
       resolved = direct;
       return data;

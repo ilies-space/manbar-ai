@@ -3,36 +3,22 @@
 // an uploaded .txt (handed to #obFile, which flow.js already ingests).
 // Server route: /api/ocr (server.js locally, api/ocr.js on Vercel), with the
 // settings-menu key as a last resort.
-import { getSettings } from "./api.js";
+import { apiRequest } from "./api.js";
 
 const $ = s => document.querySelector(s);
-const OCR_PROMPT = "أنت تقرأ صورة لورقة خطبة جمعة مكتوبة بالعربية. انسخ النص كما هو مكتوب حرفياً دون إضافة أو حذف أو تصحيح أو تلخيص. حافظ على الآيات والأحاديث كما هي بتشكيلها إن وُجد. اجعل كل جملة في سطر مستقل. تجاهل أرقام الصفحات والهوامش والعناوين المتكررة. إن لم تجد نص خطبة فأعد نصاً فارغاً. أعد JSON فقط: {\"text\":\"...\"}";
 
 export async function apiOcr(image) {
   try {
-    const r = await fetch("/api/ocr", {
+    const d = await apiRequest("ocr", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ image }), signal: AbortSignal.timeout(60000)
+      body: JSON.stringify({ image }), signal: AbortSignal.timeout(90000)
     });
-    if (r.ok) {
-      const d = await r.json();
-      if (typeof d.text === "string") return d.text;
-    }
-  } catch {}
-  const key = getSettings().key;
-  if (!key) throw new Error("no_backend");
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "gpt-4o-mini", temperature: 0, response_format: { type: "json_object" },
-      messages: [{ role: "system", content: OCR_PROMPT },
-        { role: "user", content: [{ type: "image_url", image_url: { url: image, detail: "high" } }] }]
-    })
-  });
-  if (!r.ok) throw new Error(`OpenAI: ${r.status}`);
-  const d = await r.json();
-  return String(JSON.parse(d.choices?.[0]?.message?.content || "{}").text || "");
+    if (typeof d.text === "string") return d.text;
+  } catch (e) {
+    if (e?.message === "No AI backend available") throw new Error("no_backend");
+    throw e;
+  }
+  throw new Error("no_backend");
 }
 
 function shrink(file, max = 1600) {

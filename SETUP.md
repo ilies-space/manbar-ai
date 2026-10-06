@@ -3,8 +3,9 @@
 ## التشغيل خلال دقيقة
 
 **نسخة منشورة بلا أي تثبيت:** <https://www.minbar-ai.com>
-(تفتح على الإعداد مباشرة؛ الترجمة عبر طبقة n8n تلقائياً، وQR يعمل من أي
-جوال متصل بالإنترنت — مزامنة SSE اللحظية تتطلب الخادم المحلي أدناه.)
+(الإشارة والتفريغ الصوتي و«صوّر خطبتك» والترجمة للغات كلها عبر طبقة n8n
+تلقائياً — لا يحتاج المحكّم أي مفتاح. مزامنة SSE اللحظية بين شاشة المسجد
+والجوالات تتطلب الخادم المحلي أدناه.)
 
 ```bash
 git clone https://github.com/ilies-space/manbar-ai.git
@@ -33,8 +34,8 @@ node server.js              # Node 20+
   إلا إلى OpenAI مباشرة. لا تستخدمه على جهاز عام؛ الخيار الآمن هو n8n.
 
 ### إعداد n8n الخاص بكم (اختياري)
-استوردوا سير العمل «Manabir-AI» (ثلاث Webhooks: `manbar-health`,
-`manbar-gloss`, `manbar-asr`) وأضيفوا Credential باسم OpenAI، ثم ضعوا رابط
+استوردوا سير العمل «Manabir-AI» (خمس Webhooks: `manbar-health`,
+`manbar-gloss`, `manbar-asr`, `manbar-translate`, `manbar-ocr`) وأضيفوا Credential باسم OpenAI، ثم ضعوا رابط
 `https://<host>/webhook` في قائمة الإعدادات.
 
 ## الأمان
