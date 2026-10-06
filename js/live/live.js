@@ -470,29 +470,31 @@ async function boot() {
         try {
           const e = JSON.parse(ev.data);
           if (e.type === "khutbah") { setStatus(`${mosque.name} · خطبة «${e.title}» — شاركها الإمام`); }
-          if (e.type === "perform") { live = true; stopDemo(); setStatus(`بث مباشر — ${mosque.name}`); showLine(e); }
-          if (e.type === "words") { live = true; stopDemo(); setStatus(`بث مباشر — ${mosque.name} · الإمام يتكلم`); showWords(e.text); }
+          if (e.type === "perform") { live = true; stopDemo(); stopMic(true); setStatus(`بث مباشر — ${mosque.name}`); showLine(e); }
+          if (e.type === "words") { live = true; stopDemo(); stopMic(true); setStatus(`بث مباشر — ${mosque.name} · الإمام يتكلم`); showWords(e.text); }
           if (e.type === "end") { live = false; setStatus(`انتهت الخطبة — ${mosque.name}`); }
         } catch {}
       };
-      es.onerror = () => { es.close(); if (!live) setStatus("لا يوجد بث مباشر الآن — اضغط «الاستماع المباشر» لسماع خطبة تجريبية"); };
+      es.onerror = () => { es.close(); if (!live) setStatus("اضغط «الاستماع المباشر» ليستمع جوالك إلى خطبة الإمام، أو «تجربة الاستماع» لخطبة تجريبية"); };
     } catch {
-      setStatus("لا يوجد بث مباشر الآن — اضغط «الاستماع المباشر» لسماع خطبة تجريبية");
+      setStatus("اضغط «الاستماع المباشر» ليستمع جوالك إلى خطبة الإمام، أو «تجربة الاستماع» لخطبة تجريبية");
     }
 
-    // ---- «الاستماع المباشر»: voiced demo khutbah -> signs + written text, sentence by sentence ----
+    // ---- «تجربة الاستماع»: voiced demo khutbah -> signs + written text, sentence by sentence ----
     let demo = null;
-    const btn = $("#btnListen");
+    const btn = $("#btnListen");          // real live listening (the phone's microphone)
+    const demoBtn = $("#btnDemo");        // recorded demo khutbah
+    const DEMO_LABEL = "🎧 تجربة الاستماع", LIVE_LABEL = "🎙 الاستماع المباشر";
     function stopDemo() {
       if (!demo) return;
       demo.stop = true; demo.audio?.pause();
       demo = null;
-      btn.classList.remove("on"); btn.textContent = "🎧 الاستماع المباشر";
+      if (demoBtn) { demoBtn.classList.remove("on"); demoBtn.textContent = DEMO_LABEL; }
     }
-    btn.addEventListener("click", () => (demo ? stopDemo() : startDemo()));
+    demoBtn?.addEventListener("click", () => { if (demo) stopDemo(); else { stopMic(); startDemo(); } });
     async function startDemo() {
       const me = demo = { stop: false, audio: null };
-      btn.classList.add("on"); btn.textContent = "⏹ إيقاف";
+      if (demoBtn) { demoBtn.classList.add("on"); demoBtn.textContent = "⏹ إيقاف التجربة"; }
       const segs = KHUTBAH.segments;
       for (let i = 0; i < segs.length && !me.stop; i++) {
         setStatus(`عرض تجريبي · خطبة «${KHUTBAH.title}» · ${i + 1}/${segs.length}`);
@@ -511,8 +513,72 @@ async function boot() {
         while (!me.stop && (!audioDone || player.busy) && Date.now() - t0 < 45000) await new Promise(r => setTimeout(r, 200));
         await new Promise(r => setTimeout(r, 450));
       }
-      if (demo === me) { stopDemo(); setStatus("انتهت الخطبة التجريبية — اضغط «الاستماع المباشر» لإعادتها"); }
+      if (demo === me) { stopDemo(); setStatus("انتهت الخطبة التجريبية — اضغط «تجربة الاستماع» لإعادتها"); }
     }
+
+    // ---- «الاستماع المباشر» (real): the worshipper's phone listens to the mosque loudspeaker ----
+    // speech -> words on screen as they are said; each finished sentence is matched with the khutbah
+    // (prepared signs) or translated on the fly and labelled «وضع مرتجل»
+    let mic = null, micBusy = false, pointer = -1, heard = Promise.resolve();
+    const kSegs = typeof KHUTBAH !== "undefined" ? KHUTBAH.segments : [];
+    const segText = sg => sg.type === "verse" ? `${sg.original} ${sg.verse.text}` : sg.original;
+    function matchKhutbah(text) {
+      const words = new Set(normalizeAr(text).split(" ").filter(w => w.length > 2));
+      if (!words.size) return -1;
+      let best = -1, bestScore = 0.55;
+      for (let i = 0; i < kSegs.length; i++) {
+        const sw = normalizeAr(segText(kSegs[i])).split(" ").filter(w => w.length > 2);
+        if (!sw.length) continue;
+        const shared = new Set(sw.filter(w => words.has(w))).size;
+        const hit = shared / new Set(sw).size, coverage = shared / words.size;
+        const near = pointer < 0 || (i >= pointer - 1 && i <= pointer + 4) ? 0.05 : 0;
+        if (coverage >= 0.6 && hit + near > bestScore) { bestScore = hit + near; best = i; }
+      }
+      return best;
+    }
+    function onHeard(text) {
+      heard = heard.then(async () => {
+        if (!mic || !text.trim()) return;
+        const hit = matchKhutbah(text);
+        let t = text, mode = "improvised";
+        if (hit >= 0) { pointer = hit; t = segText(kSegs[hit]); mode = "prepared"; }
+        const plan = await planFor(t);
+        if (!mic) return;
+        showLine({ id: "mic" + Date.now(), text: t, items: plan.items, ayat: plan.ayat, mode });
+      }).catch(e => console.warn(e));
+    }
+    function stopMic(quiet) {
+      if (!mic) return;
+      const a = mic; mic = null;
+      try { a.stop(); } catch {}
+      btn.classList.remove("on"); btn.textContent = LIVE_LABEL;
+      document.body.classList.remove("pub-speaking");
+      if (!quiet) setStatus("توقّف الاستماع — اضغط «الاستماع المباشر» للمتابعة");
+    }
+    async function startMic() {
+      if (micBusy) return;
+      micBusy = true;
+      try {
+        stopDemo();
+        const a = await pickAdapter({
+          onText: (t, { final }) => { if (!mic) return; if (final) { onHeard(t); return; } showWords(t); },
+          onState: (st, detail) => {
+            if (!mic) return;
+            if (st === "listening") setStatus("يستمع الآن إلى الخطبة — قرّب الجوال من مكبّر الصوت");
+            else if (st === "error") setStatus("تعذّر الاستماع: " + (detail || ""));
+          }
+        });
+        if (!a) { setStatus("المتصفح لا يدعم الاستماع المباشر — جرّب Chrome، أو اضغط «تجربة الاستماع»"); return; }
+        mic = a;
+        btn.classList.add("on"); btn.textContent = "⏹ إيقاف الاستماع";
+        setStatus("يستمع الآن إلى الخطبة — قرّب الجوال من مكبّر الصوت");
+        await a.start();
+      } catch (e) {
+        mic = null; btn.classList.remove("on"); btn.textContent = LIVE_LABEL;
+        setStatus(e?.name === "NotAllowedError" ? "رُفض إذن الميكروفون — اسمح به من إعدادات المتصفح ثم أعد المحاولة" : "تعذّر فتح الميكروفون: " + (e?.message || e));
+      } finally { micBusy = false; }
+    }
+    btn.addEventListener("click", () => (mic ? stopMic() : startMic()));
   }
 
   // ---- imam access: opens directly (no username/password screen) ----

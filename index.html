@@ -28,8 +28,8 @@
     </span>
     <span class="brand-name">منبر</span>
   </a>
-  <h1><span class="only-imam">وضع الإمام</span><span class="only-public">خطبة الجمعة</span> <span class="muted">· المترجم الحي</span></h1>
-  <a class="pill linkish mode-switch only-public" id="btnToImam" href="?mode=imam">انتقل لوضع الإمام</a>
+  <h1><span class="only-imam">وضع الإمام</span><span class="only-public">خطبة الجمعة</span></h1>
+  <a class="imam-cta mode-switch only-public" id="btnToImam" href="?mode=imam">🕌 وضع الإمام</a>
   <a class="pill linkish mode-switch only-imam" id="btnToPublic" href="./">الوضع العام</a>
   <span class="pill gold" id="mosqueBadge" hidden></span>
   <button class="pill linkish" id="btnSetup" hidden>تغيير الإعداد</button>
@@ -163,6 +163,10 @@
       <p class="pub-tr" id="pubTr" hidden></p>
     </div>
     <div class="pub-bar">
+      <div class="listen-stack">
+        <button class="btn listen-btn live-btn" id="btnListen">🎙 الاستماع المباشر</button>
+        <button class="btn listen-btn demo-btn" id="btnDemo">🎧 تجربة الاستماع</button>
+      </div>
       <span class="pill mode-chip" id="pubMode" hidden></span>
       <span class="grow"></span>
       <select class="pill lang-select" id="langSel" aria-label="لغة عرض الخطبة">
@@ -170,7 +174,6 @@
         <option value="ur">اردو</option><option value="id">Bahasa Indonesia</option><option value="tr">Türkçe</option>
         <option value="bn">বাংলা</option><option value="ms">Melayu</option>
       </select>
-      <button class="btn btn-gold listen-btn" id="btnListen">🎧 الاستماع المباشر</button>
     </div>
   </section>
 

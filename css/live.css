@@ -403,6 +403,29 @@ body.mode-public .sign-row { background: rgba(10, 7, 34, 0.72); border-radius: 9
 .lang-select option { background: var(--g900); color: var(--cream); }
 .listen-btn { padding: 8px 16px; font-size: 14px; }
 .listen-btn.on { background: #E4573D; color: #fff; }
+/* listening controls: live (green, microphone) above the demo, language on the other side */
+.pub-bar { align-items: center; }
+.listen-stack { display: flex; flex-direction: column; gap: 7px; min-width: 190px; }
+.listen-stack .listen-btn { width: 100%; justify-content: center; font-size: 15px; padding: 10px 18px; }
+.live-btn { background: #1FAF6E; border: 1px solid #1FAF6E; color: #fff; font-weight: 700; box-shadow: 0 6px 18px rgba(31, 175, 110, 0.35); }
+.live-btn:hover { background: #25C27B; }
+.live-btn.on { background: #E4573D; border-color: #E4573D; box-shadow: none; }
+.demo-btn { background: transparent; border: 1px solid rgba(220, 192, 132, 0.55); color: #DCC084; }
+.demo-btn.on { background: #E4573D; border-color: #E4573D; color: #fff; }
+.imam-cta { display: inline-flex; align-items: center; gap: 6px; margin-inline-start: auto; padding: 10px 20px; border-radius: 999px;
+  background: linear-gradient(135deg, #8B7CF6, #6150EA); color: #fff; font-weight: 700; font-size: 16px; text-decoration: none; white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: 0 6px 20px rgba(97, 80, 234, 0.5); }
+.imam-cta:hover { filter: brightness(1.12); }
+@media (max-width: 560px) {
+  .pub-bar { flex-wrap: wrap; }
+  .listen-stack { min-width: 0; flex: 1 1 55%; }
+  .listen-stack .listen-btn { font-size: 14px; padding: 9px 10px; }
+  .pub-bar .lang-select { flex: 0 1 40%; min-width: 0; max-width: 40%; }
+  .pub-bar .grow { display: none; }
+  .pub-bar #pubMode { order: 5; flex-basis: 100%; text-align: center; }
+  body.mode-public .live-top h1 { font-size: 15px; }
+  .imam-cta { padding: 8px 14px; font-size: 14px; }
+}
 .mode-chip.prepared { border-color: rgba(60, 200, 140, 0.55); color: #8FD4B4; }
 .mode-chip.improvised { border-color: rgba(232, 181, 99, 0.6); color: #F0C987; }
 
