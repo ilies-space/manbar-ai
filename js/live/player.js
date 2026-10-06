@@ -195,11 +195,26 @@ export class SignPlayer {
       const av = held(i, key), zv = held(Math.min(i + 1, fr.length - 1), key);
       return u < 0.5 ? (av ?? zv) : (zv ?? av);
     };
+    // recorded signs carry vectors / measured curls: blend them; named presets still step
+    const dir = key => {
+      const av = held(i, key), zv = held(Math.min(i + 1, fr.length - 1), key);
+      if (Array.isArray(av) && Array.isArray(zv)) return lerp3(av, zv, u);
+      return step(key);
+    };
+    const shape = key => {
+      const av = held(i, key), zv = held(Math.min(i + 1, fr.length - 1), key);
+      if (av && zv && typeof av === "object" && typeof zv === "object") {
+        const curl = {};
+        for (const d of DIGITS) curl[d] = lerp3(av.curl?.[d] || [0, 0, 0], zv.curl?.[d] || [0, 0, 0], u);
+        return { curl };
+      }
+      return step(key);
+    };
     const out = {
       R: num("R", REST_R), L: num("L", REST_L),
-      palmR: step("palmR") || "in", palmL: step("palmL") || "in",
-      fingersR: step("fingersR") || null, fingersL: step("fingersL") || null,
-      handR: step("handR") || "rest", handL: step("handL") || "rest",
+      palmR: dir("palmR") || "in", palmL: dir("palmL") || "in",
+      fingersR: dir("fingersR") || null, fingersL: dir("fingersL") || null,
+      handR: shape("handR") || "rest", handL: shape("handL") || "rest",
       euler: {}
     };
     for (const bone of ["Head", "Neck", "Spine2"]) {
@@ -224,6 +239,7 @@ export class SignPlayer {
 
   // ---- directions -----------------------------------------------------------
   _dirFromSpec(spec, sx, out) {
+    if (Array.isArray(spec)) return out.set(spec[0], spec[1], spec[2]);   // recorded (KArSL) world-space vector
     switch (spec) {
       case "up": return out.set(0, 1, 0);
       case "down": return out.set(0, -1, 0);
@@ -327,7 +343,8 @@ export class SignPlayer {
   }
 
   _applyHandshape(T, side, presetId) {
-    const preset = this.handshapes.presets[presetId] || this.handshapes.presets.rest;
+    const preset = (presetId && typeof presetId === "object") ? presetId
+      : (this.handshapes.presets[presetId] || this.handshapes.presets.rest);
     if (!preset) return;
     const tmpQ = new THREE.Quaternion();
     for (const d of DIGITS) {

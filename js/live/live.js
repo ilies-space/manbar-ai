@@ -3,13 +3,19 @@
 import { createStage } from "./scene.js";
 import { buildRig } from "./rig.js";
 import { SignPlayer } from "./player.js";
-import { Translator, normalizeAr } from "./translate.js";
+import { Translator, normalizeAr, ruleTranslate, needsNegationReview, negatedTranslate } from "./translate.js";
+import { versesIn, ayahTranslation } from "./quran.js";
 import { pickAdapter } from "./asr.js";
-import { runOnboarding, markLive, enterMobileMode, mobileFollowLoop } from "./flow.js";
+import { runOnboarding, markLive, getMosques } from "./flow.js";
 import { getSettings, saveSettings } from "./api.js";
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
+// public mode (deaf worshipper) is the default; the imam mode is an option inside the app
+const IS_IMAM = params.get("mode") === "imam";
+document.body.classList.toggle("mode-imam", IS_IMAM);
+document.body.classList.toggle("mode-public", !IS_IMAM);
+let imamToken = sessionStorage.getItem("manbar.imamToken") || "";
 
 const state = {
   mode: "prepared",          // prepared | improvised (mic path)
@@ -21,15 +27,17 @@ const state = {
 async function boot() {
   // onboarding is pure UI — run it while the character/lexicon load so the
   // user is never stuck staring at an empty card if an asset is slow
-  const isMobileView = params.get("view") === "mobile";
   const isDebug = params.get("wp") || params.get("sign");
-  const onboardingPromise = (!isMobileView && !isDebug && document.querySelector("#onboard"))
-    ? runOnboarding()
-    : null;
+  if (!IS_IMAM || isDebug) { document.querySelector("#onboard")?.remove(); document.querySelector("#login")?.remove(); }
+  const onboardingPromise = (IS_IMAM && !isDebug) ? imamLogin().then(() => runOnboarding()) : null;
 
   const [stage, signs, handshapes] = await Promise.all([
     createStage($("#stage3d"), { controls: params.has("controls") }),
-    fetch("assets/lexicon/signs.json").then(r => r.json()),
+    // team placeholder signs + 501 KArSL signs recorded by human signers
+    Promise.all([
+      fetch("assets/lexicon/signs.json").then(r => r.json()),
+      fetch("assets/lexicon/signs_karsl.json").then(r => r.json()).catch(() => ({}))
+    ]).then(([a, b]) => { delete b._note; return Object.assign(a, b); }),
     fetch("assets/lexicon/handshapes.json").then(r => r.json())
   ]);
   delete signs._note;
@@ -157,170 +165,362 @@ async function boot() {
       translator.lastSource === "cache" ? "من الذاكرة" : "قاموس محلي";
   }
 
-  // ---- prepared sentences list -------------------------------------------
-  const sentences = (typeof KHUTBAH !== "undefined" ? KHUTBAH.segments : [])
-    .map(s => ({
-      text: s.type === "verse" ? `${s.original} ${s.verse.text}` : s.original,
-      display: s.type === "verse" ? `${s.original} ﴿…﴾ ${s.verse.source}` : s.original
-    }));
-  const list = $("#sentenceList");
-  function rebuildList() {
-    list.innerHTML = "";
-    sentences.forEach((s, i) => {
-      const li = document.createElement("button");
-      li.className = "sent";
-      li.textContent = s.display;
-      li.addEventListener("click", () => { selectSentence(i); perform(s.text); });
-      list.appendChild(li);
-    });
-  }
-  rebuildList();
-  function selectSentence(i) {
-    state.pointer = i;
-    [...list.children].forEach((el, j) => el.classList.toggle("on", j === i));
-    list.children[i]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }
 
-  // ---- mic -------------------------------------------------------------------
-  const micBtn = $("#btnMic");
-  const micStatus = $("#micStatus");
-  const transcript = $("#transcript");
-
-  function setMicState(s, detail) {
-    micStatus.textContent =
-      s === "listening" ? "يستمع…" :
-      s === "transcribing" ? "يفرّغ الصوت…" :
-      s === "error" ? `خطأ: ${detail || ""}` : "متوقف";
-    micStatus.className = "pill " + (s === "listening" ? "ok" : s === "error" ? "bad" : "");
-    micStatus.hidden = s === "stopped";
-  }
-
-  function matchPrepared(text) {
-    // normalized shared-word ratio against sentences from pointer forward
-    const words = new Set(normalizeAr(text).split(" ").filter(w => w.length > 2));
-    if (!words.size) return -1;
-    let best = -1, bestScore = 0.75;
-    for (let i = Math.max(0, state.pointer); i < Math.min(sentences.length, state.pointer + 4 || 4); i++) {
-      const sw = normalizeAr(sentences[i].text).split(" ").filter(w => w.length > 2);
-      if (!sw.length) continue;
-      const shared = new Set(sw.filter(w => words.has(w))).size;
-      const hit = shared / new Set(sw).size;
-      const inputCoverage = shared / words.size;
-      if (inputCoverage >= 0.75 && hit > bestScore) { bestScore = hit; best = i; }
+  // ---- verses: official mushaf text; the avatar announces «القرآن الكريم · آية» then signs the meaning
+  // of the approved tafsir (التفسير الميسر, King Fahd Complex) — never the words of the ayah one by one
+  function verseItems(ayat) {
+    const items = [{ kind: "gloss", id: "KARSL_k359" }, { kind: "gloss", id: "KARSL_k397" }];
+    const meaning = ayat.map(a => (a.m || "").split(/[.،؛:]/)[0]).join(" ");
+    let meaningItems = ruleTranslate(meaning);
+    if (needsNegationReview(meaning)) {
+      // negated meaning: keep the explicit «لا» sign; if the negated word itself has no sign, sign only «القرآن · آية»
+      const neg = negatedTranslate(meaning);
+      meaningItems = neg.length && !neg.some(it => it.kind === "spell") ? neg.slice(0, 6) : [];
+      if (meaningItems.length && meaningItems[meaningItems.length - 1].id !== "GLOSS_NEG" && !meaningItems.some(it => it.id === "GLOSS_NEG")) meaningItems = [];
     }
-    return best;
+    for (const it of meaningItems) if (it.kind === "gloss" && items.length < 8 && items[items.length - 1].id !== it.id) items.push(it);
+    return items.filter(it => signs[it.id]);
+  }
+  async function planFor(text) {
+    const ayat = await versesIn(text);
+    if (ayat.length) return { ayat, items: verseItems(ayat), source: "verse" };
+    return { ayat: [], items: await translator.translate(text), source: translator.lastSource };
   }
 
-  async function onFinalText(text) {
-    const line = document.createElement("p");
-    line.textContent = text;
-    transcript.prepend(line);
-    if (state.mode === "prepared") {
+  if (IS_IMAM) await runImam(); else await runPublic();
+
+  // ======================================================================
+  // IMAM MODE — sign in, choose the mosque, share the khutbah, open the mic
+  // ======================================================================
+  async function runImam() {
+    const sentences = (typeof KHUTBAH !== "undefined" ? KHUTBAH.segments : [])
+      .map(s => ({
+        text: s.type === "verse" ? `${s.original} ${s.verse.text}` : s.original,
+        display: s.type === "verse" ? `${s.original} ﴿…﴾ ${s.verse.source}` : s.original
+      }));
+    const list = $("#sentenceList");
+    function rebuildList() {
+      list.innerHTML = "";
+      sentences.forEach((s, i) => {
+        const li = document.createElement("button");
+        li.className = "sent";
+        li.textContent = s.display;
+        li.addEventListener("click", () => { selectSentence(i); perform(s.text, { mode: "prepared" }); });
+        list.appendChild(li);
+      });
+    }
+    function selectSentence(i) {
+      state.pointer = i;
+      [...list.children].forEach((el, j) => el.classList.toggle("on", j === i));
+      list.children[i]?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+    rebuildList();
+
+    function pushLive(event) {
+      fetch("/api/live/push", {
+        method: "POST", headers: { "Content-Type": "application/json", "X-Imam-Token": imamToken },
+        body: JSON.stringify({ m: state.mosqueIdx ?? 0, event })
+      }).catch(() => {});
+    }
+
+    function setModeChip(mode) {
+      const c = $("#imamMode");
+      c.hidden = false;
+      c.className = "pill mode-chip " + mode;
+      c.textContent = mode === "prepared" ? "خطبة مجهّزة" : "وضع مرتجل — ترجمة فورية";
+    }
+
+    async function perform(text, { mode = "prepared" } = {}) {
+      const request = ++performanceRequest;
+      const plan = await planFor(text);
+      if (request !== performanceRequest) return;
+      const flag = mode === "improvised";
+      $("#chipEngine").textContent = plan.source === "verse" ? "آية: نص المصحف"
+        : plan.source === "review" ? "ترجمة: بحاجة إلى مراجعة"
+        : plan.source === "negation" ? "ترجمة: قاموس KArSL + إشارة النفي"
+        : plan.source === "rules" ? "ترجمة: قاموس KArSL"
+        : (translator.api?.name === "n8n" ? "ترجمة: OpenAI عبر n8n" : "ترجمة: OpenAI محلي");
+      performItems(text, plan.items, { flag });
+      setModeChip(mode);
+      pushLive({ type: "perform", id: Date.now(), text, items: plan.items, mode,
+        ayat: plan.ayat.map(({ m, ...a }) => a) });
+      $("#srcBadge").textContent = plan.source === "verse" ? "آية من المصحف" :
+        plan.source === "api" ? "ترجمة نموذج لغوي" : plan.source === "cache" ? "من الذاكرة" : plan.source === "negation" ? "KArSL + «لا»" : "قاموس KArSL";
+    }
+
+    // ---- mic: automatic switch between the shared khutbah and improvised speech ----
+    const micBtn = $("#btnMic");
+    const micStatus = $("#micStatus");
+    const transcript = $("#transcript");
+    function setMicState(st, detail) {
+      micStatus.textContent =
+        st === "listening" ? "يستمع…" :
+        st === "transcribing" ? "يفرّغ الصوت…" :
+        st === "error" ? `خطأ: ${detail || ""}` : "متوقف";
+      micStatus.className = "pill " + (st === "listening" ? "ok" : st === "error" ? "bad" : "");
+      micStatus.hidden = st === "stopped";
+    }
+    function matchPrepared(text) {
+      const words = new Set(normalizeAr(text).split(" ").filter(w => w.length > 2));
+      if (!words.size || !sentences.length) return -1;
+      let best = -1, bestScore = 0.6;
+      const from = Math.max(0, state.pointer - 1), to = Math.min(sentences.length, Math.max(state.pointer, 0) + 5);
+      for (let i = from; i < to; i++) {
+        const sw = normalizeAr(sentences[i].text).split(" ").filter(w => w.length > 2);
+        if (!sw.length) continue;
+        const shared = new Set(sw.filter(w => words.has(w))).size;
+        const hit = shared / new Set(sw).size;
+        const inputCoverage = shared / words.size;
+        if (inputCoverage >= 0.7 && hit > bestScore) { bestScore = hit; best = i; }
+      }
+      return best;
+    }
+    async function onFinalText(text) {
+      $("#liveWords").textContent = text;
+      const line = document.createElement("p");
+      line.textContent = text;
+      transcript.prepend(line);
       const hit = matchPrepared(text);
       if (hit >= 0) {
         selectSentence(hit);
         line.classList.add("hit");
-        await perform(sentences[hit].text);
+        await perform(sentences[hit].text, { mode: "prepared" });
         return;
       }
+      line.classList.add("auto");
+      await perform(text, { mode: "improvised" });
     }
-    line.classList.add("auto");
-    await perform(text, { flag: true });
-  }
-
-  micBtn.addEventListener("click", async () => {
-    if (state.micOn) {
-      state.adapter?.stop();
-      state.micOn = false;
-      micBtn.classList.remove("live");
-      micBtn.setAttribute("aria-label", "ابدأ الاستماع");
-      micBtn.title = "ابدأ الاستماع";
-      $("#icoMicStart").hidden = false;
-      $("#icoMicStop").hidden = true;
-      return;
+    // the words appear as the imam says them (interim speech results), on his screen and on the worshippers' phones
+    let wordsSent = "", wordsTimer = null;
+    function liveWords(t) {
+      if (t) { const lw = $("#liveWords"); lw.textContent = t; lw.classList.add("speaking"); }
+      else $("#liveWords").classList.remove("speaking");
+      const sub = $("#mobileSentence");
+      if (t) { sub.textContent = t; sub.hidden = false; sub.classList.add("speaking"); }
+      else sub.classList.remove("speaking");
+      if (wordsTimer) return;
+      wordsTimer = setTimeout(() => {
+        wordsTimer = null;
+        const cur = $("#mobileSentence").classList.contains("speaking") ? $("#mobileSentence").textContent : "";
+        if (cur !== wordsSent) { wordsSent = cur; pushLive({ type: "words", text: cur }); }
+      }, 250);
     }
-    state.adapter = await pickAdapter({
-      onText: (t, { final }) => { $("#interim").textContent = t; if (final) { $("#interim").textContent = ""; return onFinalText(t); } },
-      onState: setMicState
+    async function startMic() {
+      if (!state.micOn) micBtn.click();
+    }
+    micBtn.addEventListener("click", async () => {
+      if (state.micOn) {
+        state.adapter?.stop();
+        state.micOn = false;
+        micBtn.classList.remove("live");
+        micBtn.setAttribute("aria-label", "ابدأ الاستماع"); micBtn.title = "ابدأ الاستماع";
+        $("#icoMicStart").toggleAttribute("hidden", false); $("#icoMicStop").toggleAttribute("hidden", true);
+        return;
+      }
+      state.adapter = await pickAdapter({
+        onText: (t, { final }) => {
+          $("#interim").textContent = t;
+          if (final) { $("#interim").textContent = ""; liveWords(""); return onFinalText(t); }
+          liveWords(t);
+        },
+        onState: setMicState
+      });
+      if (!state.adapter) { setMicState("error", "لا يوجد مدخل صوت مدعوم"); return; }
+      $("#chipAsr").textContent = state.adapter.name;
+      try {
+        await state.adapter.start();
+        state.micOn = true;
+        micBtn.classList.add("live");
+        micBtn.setAttribute("aria-label", "أوقف الاستماع"); micBtn.title = "أوقف الاستماع";
+        $("#icoMicStart").toggleAttribute("hidden", true); $("#icoMicStop").toggleAttribute("hidden", false);
+      } catch (e) { setMicState("error", e.name === "NotAllowedError" ? "رفض إذن الميكروفون" : e.message); }
     });
-    if (!state.adapter) { setMicState("error", "لا يوجد مدخل صوت مدعوم"); return; }
-    $("#chipAsr").textContent = state.adapter.name;
-    try {
-      await state.adapter.start();
-      state.micOn = true;
-      micBtn.classList.add("live");
-      micBtn.setAttribute("aria-label", "أوقف الاستماع");
-      micBtn.title = "أوقف الاستماع";
-      $("#icoMicStart").hidden = true;
-      $("#icoMicStop").hidden = false;
-    } catch (e) { setMicState("error", e.name === "NotAllowedError" ? "رفض إذن الميكروفون" : e.message); }
-  });
+    setInterval(() => {
+      const lv = state.adapter?.level?.() || 0;
+      $("#vu").style.width = `${Math.min(100, lv * 240)}%`;
+    }, 120);
 
-  // VU meter
-  setInterval(() => {
-    const lv = state.adapter?.level?.() || 0;
-    $("#vu").style.width = `${Math.min(100, lv * 240)}%`;
-  }, 120);
-
-  // mode toggle (prepared tracking vs improvised)
-  document.querySelectorAll("#micMode button").forEach(b => {
-    b.addEventListener("click", () => {
-      state.mode = b.dataset.mode;
-      document.querySelectorAll("#micMode button").forEach(x => x.classList.toggle("on", x === b));
-    });
-  });
-
-  // ---- product flow: phone viewer (via QR) or TV onboarding -----------------
-  if (params.get("view") === "mobile") {
-    document.querySelector("#onboard")?.remove();
-    const mIdx = parseInt(params.get("m") || "0", 10) || 0;
-    enterMobileMode(mIdx);
-    // synced mode: follow the mosque screen's session through the relay
-    let synced = false, fallbackStarted = false;
-    const startFallback = () => {
-      if (fallbackStarted || synced) return;
-      fallbackStarted = true;
-      $("#mobileTicker").textContent = "بث تجريبي مستقل";
-      mobileFollowLoop(t => perform(t), () => player.busy, (i, n) => {
-        $("#mobileTicker").textContent = `بث تجريبي مستقل · ${i + 1}/${n}`;
-      }, () => synced);
-    };
-    try {
-      const es = new EventSource(`/api/live/stream?m=${mIdx}`);
-      es.onmessage = ev => {
-        try {
-          const e = JSON.parse(ev.data);
-          if (e.type === "perform") {
-            synced = true;
-            $("#mobileTicker").textContent = "متزامن مع شاشة المسجد";
-            performItems(e.text, e.items || [], { flag: !!e.flag });
-          }
-        } catch {}
-      };
-      es.onerror = () => { es.close(); startFallback(); };
-      setTimeout(startFallback, 5000);   // no screen session -> labeled demo loop
-      $("#mobileTicker").textContent = "بانتظار بث الشاشة…";
-    } catch { startFallback(); }
-  } else {
+    // ---- onboarding (mosque -> khutbah -> share) ----
     const setup = await onboardingPromise;
     state.mosqueIdx = setup.mosqueIdx;
     if (setup.khutbah) {
       sentences.length = 0;
       setup.khutbah.sentences.forEach(t => sentences.push({ text: t, display: t }));
       rebuildList();
-      document.querySelector("#paneSent .pane-hint").textContent =
-        `خطبة «${setup.khutbah.title}» المرفوعة — اضغط جملة ليترجمها المترجم الرقمي.`;
     }
     await markLive(setup);
+    // «مشاركة الخطبة»: the worshippers' devices switch to the prepared khutbah automatically
+    pushLive({ type: "khutbah", title: (setup.khutbah || KHUTBAH).title, n: sentences.length, mosque: setup.mosque?.name });
+    document.body.classList.remove("panel-closed");
     $("#qrToggle").hidden = false;
     $("#qrToggle").addEventListener("click", () => { $("#qrCard").hidden = !$("#qrCard").hidden; });
     $("#qrCard").addEventListener("click", () => { $("#qrCard").hidden = true; });
-    const btnSetup = $("#btnSetup");
-    btnSetup.hidden = true;
-    btnSetup.addEventListener("click", () => location.reload());
+    $("#panelHandle")?.addEventListener("click", () => document.body.classList.toggle("panel-closed"));
+    window.addEventListener("beforeunload", () => pushLive({ type: "end" }));
+    startMic();
   }
-  $("#panelHandle")?.addEventListener("click", () => document.body.classList.toggle("panel-closed"));
 
+  // ======================================================================
+  // PUBLIC MODE (default) — the deaf worshipper's screen
+  // ======================================================================
+  async function runPublic() {
+    const mIdx = parseInt(params.get("m") || "0", 10) || 0;
+    const mosque = getMosques()[mIdx] || getMosques()[0];
+    const status = $("#pubStatus");
+    const setStatus = t => { status.textContent = t; };
+    $("#mosqueHere").innerHTML = `<span class="mh-dot"></span>أنت الآن في <strong>${String(mosque.name).replace(/[&<>"]/g, "")}</strong>${mosque.city ? ` <small>· ${String(mosque.city).replace(/[&<>"]/g, "")}</small>` : ""}`;
+    let current = null;          // the line on screen
+    let lang = localStorage.getItem("manbar.lang") || "ar";
+    $("#langSel").value = lang;
+
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    function renderNow(ev) {
+      const box = $("#pubNow");
+      if (ev.ayat?.length) {
+        box.innerHTML = ev.ayat.map(a =>
+          `<div class="ayah"><span class="ayah-t">﴿${esc(a.t)}﴾</span><span class="ayah-ref">${esc(a.ref)}` +
+          `${a.partial ? " · اقتبس الإمام جزءاً منها" : ""}${a.also ? " · وردت أيضاً في: " + esc(a.also.join("، ")) : ""}</span></div>`).join("");
+      } else {
+        box.textContent = ev.text;
+      }
+    }
+    // a chosen language replaces the Arabic: only that language is shown (Arabic text comes back if no translation exists)
+    let lastTr = null, curTr = null;
+    function applyLang() {
+      document.body.classList.toggle("pub-foreign", lang !== "ar");
+    }
+    async function renderTr(ev) {
+      const el = $("#pubTr");
+      applyLang();
+      el.hidden = true;
+      document.body.classList.remove("pub-tr-missing");
+      if (lang === "ar" || !ev) { $("#pubPrevTr").textContent = ""; return; }
+      const t = await translateLine(ev, lang);
+      if (ev !== current) return;
+      if (!t) { document.body.classList.add("pub-tr-missing"); return; }
+      curTr = t.text;
+      el.innerHTML = `${esc(t.text)}<small>${esc(t.src)}</small>`;
+      el.className = "pub-tr" + (["ur"].includes(lang) ? "" : " ltr");
+      el.hidden = false;
+      const pv = $("#pubPrevTr"); pv.textContent = lastTr || ""; pv.className = "pub-prev-tr" + (["ur"].includes(lang) ? "" : " ltr");
+    }
+    // words of the sentence being spoken right now (before it is complete and translated)
+    let wordsShown = false;
+    function showWords(t) {
+      if (!t) return;
+      if (!wordsShown && current) {
+        $("#pubPrev").textContent = current.ayat?.length ? current.ayat.map(a => a.ref).join("، ") : current.text;
+        if (curTr) { const pv = $("#pubPrevTr"); pv.textContent = curTr; pv.className = "pub-prev-tr" + (["ur"].includes(lang) ? "" : " ltr"); }
+        $("#pubTr").hidden = true;
+      }
+      wordsShown = true;
+      const box = $("#pubNow");
+      box.innerHTML = `<span class="speaking">${esc(t)}</span>`;
+      if (lang !== "ar") { const el = $("#pubTr"); el.className = "pub-tr waiting"; el.innerHTML = `<span class="speaking"></span>`; el.hidden = false; }
+      document.body.classList.add("pub-speaking");
+    }
+    function showLine(ev) {
+      wordsShown = false;
+      document.body.classList.remove("pub-speaking");
+      lastTr = curTr; curTr = null;
+      if (current) $("#pubPrev").textContent = current.ayat?.length ? current.ayat.map(a => a.ref).join("، ") : current.text;
+      current = ev;
+      renderNow(ev);
+      const chip = $("#pubMode");
+      chip.hidden = false;
+      chip.className = "pill mode-chip " + (ev.mode === "improvised" ? "improvised" : "prepared");
+      chip.textContent = ev.mode === "improvised" ? "وضع مرتجل — ترجمة آلية فورية" : "خطبة مجهّزة";
+      if (ev.items?.length) performItems(ev.text, ev.items, { flag: ev.mode === "improvised" });
+      else { player.clear(); $("#caption").textContent = ""; }
+      renderTr(ev);
+    }
+    applyLang();
+    $("#langSel").addEventListener("change", e => {
+      lang = e.target.value; lastTr = null;
+      try { localStorage.setItem("manbar.lang", lang); } catch {}
+      renderTr(current);
+    });
+
+    // translations: verses from published translations of meanings; sentences machine-translated (labelled)
+    const DEMO = {};
+    if (typeof KHUTBAH !== "undefined") for (const seg of KHUTBAH.segments) {
+      const T = (typeof DEMO_TR !== "undefined" && DEMO_TR[seg.id]) || {};
+      DEMO[normalizeAr(seg.original)] = { en: seg.en, ...T };
+    }
+    async function translateLine(ev, to) {
+      if (ev.ayat?.length) {
+        const T = (await Promise.all(ev.ayat.map(a => ayahTranslation(to, a.s, a.a)))).filter(Boolean);
+        if (T.length) return { text: T.map(t => t.text).join(" "), src: "ترجمة معاني معتمدة: " + T[0].source };
+      }
+      const pre = DEMO[normalizeAr(ev.text)]?.[to];
+      if (pre) return { text: pre, src: "ترجمة آلية مُعدّة مسبقاً" };
+      try {
+        const r = await fetch("/api/translate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: ev.text, to }) });
+        if (r.ok) { const d = await r.json(); if (d.text) return { text: d.text, src: "ترجمة آلية فورية" }; }
+      } catch {}
+      return null;
+    }
+
+    // ---- live from the mosque (local server, same Wi-Fi: the QR is scanned inside the mosque) ----
+    let live = false;
+    try {
+      const es = new EventSource(`/api/live/stream?m=${mIdx}`);
+      es.onopen = () => { if (!live) setStatus(`متصل بـ${mosque.name} — بانتظار بدء الخطبة`); };
+      es.onmessage = ev => {
+        try {
+          const e = JSON.parse(ev.data);
+          if (e.type === "khutbah") { setStatus(`${mosque.name} · خطبة «${e.title}» — شاركها الإمام`); }
+          if (e.type === "perform") { live = true; stopDemo(); setStatus(`بث مباشر — ${mosque.name}`); showLine(e); }
+          if (e.type === "words") { live = true; stopDemo(); setStatus(`بث مباشر — ${mosque.name} · الإمام يتكلم`); showWords(e.text); }
+          if (e.type === "end") { live = false; setStatus(`انتهت الخطبة — ${mosque.name}`); }
+        } catch {}
+      };
+      es.onerror = () => { es.close(); if (!live) setStatus("لا يوجد بث مباشر الآن — اضغط «الاستماع المباشر» لسماع خطبة تجريبية"); };
+    } catch {
+      setStatus("لا يوجد بث مباشر الآن — اضغط «الاستماع المباشر» لسماع خطبة تجريبية");
+    }
+
+    // ---- «الاستماع المباشر»: voiced demo khutbah -> signs + written text, sentence by sentence ----
+    let demo = null;
+    const btn = $("#btnListen");
+    function stopDemo() {
+      if (!demo) return;
+      demo.stop = true; demo.audio?.pause();
+      demo = null;
+      btn.classList.remove("on"); btn.textContent = "🎧 الاستماع المباشر";
+    }
+    btn.addEventListener("click", () => (demo ? stopDemo() : startDemo()));
+    async function startDemo() {
+      const me = demo = { stop: false, audio: null };
+      btn.classList.add("on"); btn.textContent = "⏹ إيقاف";
+      const segs = KHUTBAH.segments;
+      for (let i = 0; i < segs.length && !me.stop; i++) {
+        setStatus(`عرض تجريبي · خطبة «${KHUTBAH.title}» · ${i + 1}/${segs.length}`);
+        const seg = segs[i];
+        const text = seg.type === "verse" ? `${seg.original} ${seg.verse.text}` : seg.original;
+        let audioDone = false;
+        const audio = me.audio = new Audio(`assets/audio/khutbah_${String(i + 1).padStart(2, "0")}.mp3`);
+        audio.onended = () => (audioDone = true);
+        audio.onerror = () => (audioDone = true);
+        const plan = await planFor(text);
+        if (me.stop) break;
+        audio.play().catch(() => (audioDone = true));
+        showLine({ id: "demo" + i, text, items: plan.items, ayat: plan.ayat, mode: "prepared" });
+        const t0 = Date.now();
+        await new Promise(r => setTimeout(r, 700));
+        while (!me.stop && (!audioDone || player.busy) && Date.now() - t0 < 45000) await new Promise(r => setTimeout(r, 200));
+        await new Promise(r => setTimeout(r, 450));
+      }
+      if (demo === me) { stopDemo(); setStatus("انتهت الخطبة التجريبية — اضغط «الاستماع المباشر» لإعادتها"); }
+    }
+  }
+
+  // ---- imam access: opens directly (no username/password screen) ----
+  async function imamLogin() {
+    if (!imamToken) { imamToken = "open"; try { sessionStorage.setItem("manbar.imamToken", imamToken); } catch {} }
+    document.querySelector("#login")?.remove();
+    return;
+  }
   // ---- settings dialog ----
   const sOverlay = $("#settingsOverlay");
   $("#btnSettings").addEventListener("click", () => {

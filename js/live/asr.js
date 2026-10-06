@@ -208,8 +208,10 @@ export class WhisperChunkAdapter {
 }
 
 export async function pickAdapter(opts) {
+  // live word-by-word captions need interim results: prefer the browser's streaming recognizer (Chrome/Edge/Safari),
+  // fall back to chunked Whisper where it is not available
+  if (WebSpeechAdapter.supported()) return new WebSpeechAdapter(opts);
   const api = await apiResolve();
   if (api.key && api.asr) return new WhisperChunkAdapter(opts);
-  if (WebSpeechAdapter.supported()) return new WebSpeechAdapter(opts);
   return null;
 }

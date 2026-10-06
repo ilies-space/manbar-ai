@@ -25,20 +25,25 @@ const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript", ".mjs": "text/javascript",
   ".css": "text/css", ".json": "application/json", ".glb": "model/gltf-binary",
   ".webm": "video/webm", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png",
-  ".svg": "image/svg+xml", ".ico": "image/x-icon", ".woff2": "font/woff2", ".fbx": "application/octet-stream"
+  ".svg": "image/svg+xml", ".ico": "image/x-icon", ".woff2": "font/woff2", ".fbx": "application/octet-stream",
+  ".mp3": "audio/mpeg"
 };
 
 // gloss vocabulary for the prompt, loaded once
 let VOCAB = [];
-try {
-  const signs = JSON.parse(fs.readFileSync(path.join(ROOT, "assets/lexicon/signs.json")));
-  VOCAB = Object.entries(signs).filter(([k]) => !k.startsWith("_")).map(([id, v]) => ({ id, ar: v.ar }));
-} catch {}
+for (const f of ["assets/lexicon/signs_karsl.json", "assets/lexicon/signs.json"]) {
+  try {
+    const signs = JSON.parse(fs.readFileSync(path.join(ROOT, f)));
+    const have = new Set(VOCAB.map(v => v.ar));
+    for (const [id, v] of Object.entries(signs)) if (!id.startsWith("_") && v.kind !== "letter" && v.kind !== "number" && !have.has(v.ar)) VOCAB.push({ id, ar: v.ar });
+  } catch {}
+}
 
 const SYSTEM = `أنت مترجم من العربية إلى تسلسل إشارات للغة الإشارة (Gloss).
 المفردات المتاحة فقط:
 ${VOCAB.map(v => `${v.id} = ${v.ar}`).join("\n")}
 حوّل جملة المستخدم إلى تسلسل بسيط بترتيب لغة الإشارة (الموضوع أولاً، أفعال مبسطة، احذف حروف الجر وأدوات التعريف).
+ترجم المعنى لا الألفاظ، واختر أقرب مفهوم متاح كما يفعل مترجم الإشارة: «اتقوا الله» ← الله تعالى، خائف · «أحسنوا» ← خير · «استغفروا» ← مغفرة · «عباد الله» ← ناس · «الذنوب» ← سيئات.
 أعد JSON فقط بهذا الشكل: {"glosses":[ "GLOSS_X", {"spell":"كلمة"}, ... ]}
 قواعد صارمة:
 - استخدم المعرفات من القائمة فقط.
@@ -132,8 +137,58 @@ async function handleAsr(req, res) {
   send(res, 200, { text: data.text || "", ms: Date.now() - t0 });
 }
 
+// ---- imam access: open (no account) — the imam page broadcasts directly -------
+const crypto = require("crypto");
+
+// ---- «صوّر خطبتك»: photo of the printed khutbah -> text (GPT-4o-mini vision) ----
+const OCR_PROMPT = "أنت تقرأ صورة لورقة خطبة جمعة مكتوبة بالعربية. انسخ النص كما هو مكتوب حرفياً دون إضافة أو حذف أو تصحيح أو تلخيص. حافظ على الآيات والأحاديث كما هي بتشكيلها إن وُجد. اجعل كل جملة في سطر مستقل. تجاهل أرقام الصفحات والهوامش والعناوين المتكررة. إن لم تجد نص خطبة فأعد نصاً فارغاً. أعد JSON فقط: {\"text\":\"...\"}";
+async function handleOcr(req, res) {
+  if (!KEY) return send(res, 503, { error: "no_key" });
+  const { image } = JSON.parse((await readBody(req, 12e6)).toString() || "{}");
+  if (!/^data:image\/(jpeg|png|webp);base64,/.test(image || "")) return send(res, 400, { error: "bad_image" });
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4o-mini", temperature: 0, response_format: { type: "json_object" },
+      messages: [{ role: "system", content: OCR_PROMPT },
+        { role: "user", content: [{ type: "image_url", image_url: { url: image, detail: "high" } }] }]
+    })
+  });
+  if (!r.ok) return send(res, 502, { error: "openai", detail: (await r.text()).slice(0, 300) });
+  const d = await r.json();
+  let text = "";
+  try { text = String(JSON.parse(d.choices?.[0]?.message?.content || "{}").text || ""); } catch {}
+  return send(res, 200, { text });
+}
+
+// ---- translation of khutbah sentences for the worshipper's language ---------
+const LANGS = { en: "English", fr: "French", ur: "Urdu", id: "Indonesian", tr: "Turkish", bn: "Bengali", ms: "Malay" };
+async function handleTranslate(req, res) {
+  if (!KEY) return send(res, 503, { error: "no_key" });
+  const { text, to } = JSON.parse((await readBody(req, 1e5)).toString() || "{}");
+  if (!text || !LANGS[to]) return send(res, 400, { error: "bad_request" });
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-4o-mini", temperature: 0.2, response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: `Translate this Friday khutbah sentence from Arabic into ${LANGS[to]} for live subtitles in a mosque. Be faithful and reverent; keep Islamic terms (Allah, taqwa, the Prophet ﷺ). Do NOT translate Quran verses yourself: if the sentence contains one, translate only the surrounding words. Return JSON {"text":"..."} only.` },
+        { role: "user", content: text }
+      ]
+    })
+  });
+  if (!r.ok) return send(res, 502, { error: "openai" });
+  const d = await r.json();
+  let out = "";
+  try { out = JSON.parse(d.choices[0].message.content).text || ""; } catch {}
+  send(res, 200, { text: out });
+}
+
 // ---- live session relay (TV screen -> phones on the same session) ---------
 const liveChannels = new Map();   // mosque index -> Set<ServerResponse>
+const lastEvents = new Map();     // mosque index -> [last "khutbah" event, last "perform" event]
 
 function handleLiveStream(req, res, mosque) {
   res.writeHead(200, {
@@ -143,6 +198,7 @@ function handleLiveStream(req, res, mosque) {
     "Access-Control-Allow-Origin": "*"
   });
   res.write("retry: 2000\n\n");
+  for (const e of (lastEvents.get(mosque) || [])) res.write(`data: ${JSON.stringify(e)}\n\n`);
   if (!liveChannels.has(mosque)) liveChannels.set(mosque, new Set());
   const channel = liveChannels.get(mosque);
   channel.add(res);
@@ -152,7 +208,12 @@ function handleLiveStream(req, res, mosque) {
 
 async function handleLivePush(req, res) {
   const { m, event } = JSON.parse((await readBody(req)).toString() || "{}");
-  const channel = liveChannels.get(String(m ?? "0"));
+  const key = String(m ?? "0");
+  if (event && (event.type === "khutbah" || event.type === "perform" || event.type === "end")) {
+    const L = (lastEvents.get(key) || []).filter(e => e.type !== event.type && !(event.type === "khutbah" && e.type === "perform"));
+    lastEvents.set(key, event.type === "end" ? [] : [...L, event]);
+  }
+  const channel = liveChannels.get(key);
   let listeners = 0;
   if (channel) {
     const frame = `data: ${JSON.stringify(event || {})}\n\n`;
@@ -175,6 +236,8 @@ const server = http.createServer(async (req, res) => {
       return handleLiveStream(req, res, mosque);
     }
     if (req.method === "POST" && req.url === "/api/live/push") return await handleLivePush(req, res);
+    if (req.method === "POST" && req.url === "/api/translate") return await handleTranslate(req, res);
+    if (req.method === "POST" && req.url === "/api/ocr") return await handleOcr(req, res);
 
     // static
     let p = decodeURIComponent((req.url || "/").split("?")[0]);
@@ -184,7 +247,7 @@ const server = http.createServer(async (req, res) => {
     }
     const publicFile = ["/index.html", "/live.html", "/about.html", "/assets/credits.json",
       "/assets/character/translator.glb", "/tools/pose-editor.html"].includes(p);
-    const publicFolder = /^\/(css|js|assets\/(img|video|lexicon))\//.test(p);
+    const publicFolder = /^\/(css|js|assets\/(img|video|lexicon|quran|fonts|audio))\//.test(p);
     if ((!publicFile && !publicFolder) || p.split("/").some(part => part.startsWith("."))) {
       return send(res, 404, { error: "not_found" });
     }

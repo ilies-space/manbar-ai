@@ -370,3 +370,117 @@ body.mobile-viewer .panel-handle, body.mobile-viewer .qr-toggle { display: none;
 .key-row { display: flex; gap: 8px; align-items: center; }
 .key-row input { flex: 1; }
 .set-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 6px; }
+
+/* ===== two modes: public (default, deaf worshipper) and imam ===== */
+body.mode-public .only-imam, body.mode-imam .only-public { display: none !important; }
+.mode-switch { text-decoration: none; }
+body.mode-public .live-chips, body.mode-public .rec-dock, body.mode-public #btnSettings,
+body.mode-public .qr-toggle, body.mode-public .qr-card, body.mode-public #mobileSentence,
+body.mode-public #mobileBar { display: none !important; }
+
+/* public layout: the character and the text are separate sections — the text never covers the hands */
+body.mode-public .live-grid { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; gap: 12px; }
+body.mode-public .stage-panel { min-height: 0; }
+body.mode-public .stage-bottom { background: none; padding: 0 12px 10px; }
+body.mode-public .gloss-strip { display: none; }
+body.mode-public .sign-row { background: rgba(10, 7, 34, 0.72); border-radius: 999px; padding: 4px 14px; }
+.pub-text {
+  border-radius: var(--radius-lg); border: 1px solid rgba(139, 124, 246, 0.22);
+  background: var(--g900); padding: 14px 18px 12px; display: flex; flex-direction: column; gap: 8px;
+  max-height: 44vh; min-height: 150px;
+}
+.pub-status { font-size: 12.5px; color: rgba(243, 241, 251, 0.6); }
+.pub-lines { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.pub-prev { font-size: 15px; line-height: 1.8; color: rgba(243, 241, 251, 0.45); margin: 0; }
+.pub-prev:empty { display: none; }
+.pub-now { font-size: clamp(19px, 2.2vw, 28px); line-height: 1.85; font-weight: 500; }
+.pub-tr { font-size: 15.5px; line-height: 1.7; color: #B9AEFF; margin: 0; }
+.pub-tr small { display: block; font-size: 11px; color: rgba(243, 241, 251, 0.45); }
+.pub-tr.ltr { direction: ltr; text-align: left; }
+.pub-bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-top: 1px solid rgba(139, 124, 246, 0.15); padding-top: 9px; }
+.pub-bar .grow { flex: 1; }
+.lang-select { cursor: pointer; font-family: inherit; }
+.lang-select option { background: var(--g900); color: var(--cream); }
+.listen-btn { padding: 8px 16px; font-size: 14px; }
+.listen-btn.on { background: #E4573D; color: #fff; }
+.mode-chip.prepared { border-color: rgba(60, 200, 140, 0.55); color: #8FD4B4; }
+.mode-chip.improvised { border-color: rgba(232, 181, 99, 0.6); color: #F0C987; }
+
+/* verified verses — official King Fahd Complex mushaf text, no tafsir */
+.ayah { margin: 2px 0 4px; }
+.ayah-t { font-family: "Amiri Quran", "Amiri", serif; color: var(--gold); font-size: clamp(22px, 2.4vw, 32px); line-height: 2.05; }
+.ayah-ref { display: inline-block; margin-inline-start: 8px; font-size: 12.5px; color: var(--gold); border: 1px solid rgba(220, 192, 132, 0.4); border-radius: 999px; padding: 1px 10px; vertical-align: middle; font-family: inherit; }
+.ayah-said { display: block; font-size: 14px; color: rgba(243, 241, 251, 0.55); }
+.unverified { display: block; font-size: 12px; color: #F0907C; }
+
+/* login */
+.login-card { max-width: 420px; display: flex; flex-direction: column; gap: 12px; }
+.login-card .set-field input { width: 100%; }
+.login-err { color: #F0907C; font-size: 13px; margin: 0; }
+
+@media (max-width: 760px) {
+  body.mode-public .live-top { gap: 10px; padding: 10px 4vw; }
+  body.mode-public .live-top h1 { font-size: 16px; }
+  body.mode-public .live-grid { padding: 8px; }
+  .pub-text { max-height: 46vh; padding: 10px 12px; }
+  .pub-now { font-size: 19px; }
+  .ayah-t { font-size: 21px; }
+}
+
+/* imam / mosque screen: text and controls sit BELOW the character, never over the hands */
+body.mode-imam .stage-panel { display: flex; flex-direction: column; }
+body.mode-imam #stage3d { flex: 1; min-height: 0; }
+body.mode-imam .stage-bottom { position: relative; inset: auto; background: rgba(10, 7, 34, 0.55); border-top: 1px solid rgba(139, 124, 246, 0.18); padding: 10px 18px 12px; }
+/* the sign label only appears while a sign is playing */
+.sign-row:has(#caption:empty):has(#srcBadge:empty) { display: none; }
+body.mode-public .sign-row:has(#caption:empty) { display: none; }
+@media (max-width: 760px) { body.mode-public .stage-flag { font-size: 9.5px; max-width: 92%; } }
+
+/* public mode: where am I + no technical labels on the stage */
+body.mode-public .sign-row, body.mode-public #flagAuto { display: none !important; }
+.mosque-here {
+  position: absolute; top: 12px; inset-inline-start: 12px; z-index: 6;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(10, 7, 34, 0.72); color: #F3F1FB; backdrop-filter: blur(6px);
+  border: 1px solid rgba(200, 180, 92, 0.45); border-radius: 999px;
+  padding: 6px 14px; font-size: 13.5px; font-weight: 500;
+}
+.mosque-here strong { color: #DCC084; font-weight: 700; }
+.mosque-here small { color: rgba(243, 241, 251, 0.6); font-size: 12px; }
+.mosque-here .mh-dot { width: 7px; height: 7px; border-radius: 50%; background: #DCC084; box-shadow: 0 0 0 3px rgba(220, 192, 132, 0.2); }
+body.mode-imam .mosque-here { display: none; }
+@media (max-width: 760px) { .mosque-here { font-size: 12.5px; padding: 5px 12px; top: 10px; } }
+
+/* a chosen language replaces the Arabic text */
+body.pub-foreign .pub-now, body.pub-foreign .pub-prev { display: none; }
+body.pub-foreign.pub-tr-missing .pub-now { display: block; }
+body.pub-foreign .pub-tr { font-size: clamp(18px, 2.1vw, 26px); line-height: 1.75; color: #F3F1FB; font-weight: 500; }
+body.pub-foreign .pub-tr small { font-size: 11.5px; margin-top: 6px; font-weight: 400; }
+body.pub-foreign .pub-tr.ltr { direction: ltr; text-align: left; }
+.pub-prev-tr { font-size: 15px; line-height: 1.7; color: rgba(243, 241, 251, 0.45); margin: 0; }
+.pub-prev-tr.ltr { direction: ltr; text-align: left; }
+.pub-prev-tr:empty, body:not(.pub-foreign) .pub-prev-tr { display: none; }
+
+/* the imam's words as he says them */
+#mobileSentence.speaking { border-bottom-color: #8FD4B4; }
+#mobileSentence.speaking::after, .pub-now .speaking::after, .pub-tr .speaking::after {
+  content: ""; display: inline-block; width: 7px; height: 7px; margin-inline-start: 8px; border-radius: 50%;
+  background: #8FD4B4; vertical-align: middle; animation: spk 1s ease-in-out infinite;
+}
+@keyframes spk { 50% { opacity: 0.25; } }
+.pub-now .speaking { color: #F3F1FB; }
+
+
+/* imam mode: only the words he says — no technical labels, no prepared list */
+body.mode-imam #flagAuto, body.mode-imam .sign-row, body.mode-imam #glossStrip,
+body.mode-imam #mobileSentence, body.mode-imam #chipEngine { display: none !important; }
+.live-words-sec { display: flex; flex-direction: column; gap: 14px; flex: 1; min-height: 0; }
+.live-words {
+  flex: 1; margin: 0; overflow-y: auto;
+  font-size: clamp(22px, 2.2vw, 30px); line-height: 1.9; font-weight: 600; color: #F6F3FF;
+}
+.live-words:empty::before { content: attr(data-empty); font-size: 15px; font-weight: 400; color: rgba(243, 241, 251, 0.45); }
+.live-words.speaking::after {
+  content: ""; display: inline-block; width: 8px; height: 8px; margin-inline-start: 10px; border-radius: 50%;
+  background: #8FD4B4; vertical-align: middle; animation: spk 1s ease-in-out infinite;
+}

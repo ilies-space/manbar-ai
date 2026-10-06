@@ -18,7 +18,8 @@
 } }
 </script>
 </head>
-<body class="live-body panel-closed">
+<body class="live-body panel-closed mode-public">
+<script>if (new URLSearchParams(location.search).get("mode") === "imam") document.body.classList.replace("mode-public", "mode-imam");</script>
 
 <header class="live-top">
   <a class="brand" href="about.html" title="عن المشروع">
@@ -27,7 +28,9 @@
     </span>
     <span class="brand-name">منبر</span>
   </a>
-  <h1>المترجم الحي <span class="muted">· نموذج تجريبي</span></h1>
+  <h1><span class="only-imam">وضع الإمام</span><span class="only-public">خطبة الجمعة</span> <span class="muted">· المترجم الحي</span></h1>
+  <a class="pill linkish mode-switch only-public" id="btnToImam" href="?mode=imam">انتقل لوضع الإمام</a>
+  <a class="pill linkish mode-switch only-imam" id="btnToPublic" href="./">الوضع العام</a>
   <span class="pill gold" id="mosqueBadge" hidden></span>
   <button class="pill linkish" id="btnSetup" hidden>تغيير الإعداد</button>
   <button class="icon-btn" id="btnSettings" title="الإعدادات">
@@ -42,7 +45,7 @@
   </div>
 </header>
 
-<div class="ob-overlay" id="onboard">
+<div class="ob-overlay only-imam" id="onboard">
   <button id="obSkip" class="ob-skip" title="للتطوير فقط">تخطٍ ↵</button>
   <div class="ob-card">
     <div class="ob-head">
@@ -103,7 +106,7 @@
           <span>امسح لعرض البث على الجوال<br /><small id="obQrUrl"></small></span>
         </div>
         <div class="ob-actions">
-          <button class="btn btn-gold btn-lg" id="obStart">ابدأ البث على هذه الشاشة</button>
+          <button class="btn btn-gold btn-lg" id="obStart">مشاركة الخطبة</button>
           <button class="pill linkish" id="obBack2">رجوع</button>
         </div>
       </div>
@@ -115,7 +118,8 @@
   <section class="stage-panel">
     <canvas id="stage3d"></canvas>
     <p id="bootError" class="boot-error" hidden></p>
-    <span class="stage-flag">حركات أولية من الفريق — بانتظار اعتماد مترجم معتمد</span>
+    <div class="mosque-here only-public" id="mosqueHere"></div>
+    <span class="stage-flag">إشارات منقولة من تسجيلات KArSL — بانتظار اعتماد مترجم معتمد</span>
     <span class="stage-flag warn" id="flagAuto" hidden>ترجمة آلية غير معتمدة</span>
     <button class="qr-toggle" id="qrToggle" hidden title="عرض رمز QR للجوال">
       <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M3 3h8v8H3V3zm2 2v4h4V5H5zm8-2h8v8h-8V3zm2 2v4h4V5h-4zM3 13h8v8H3v-8zm2 2v4h4v-4H5zm13-2h3v3h-3v-3zm-5 0h3v3h-3v-3zm5 5h3v3h-3v-3zm-5 0h3v3h-3v-3z"/></svg>
@@ -137,6 +141,7 @@
       </div>
       <div class="rec-dock">
         <span class="pill" id="micStatus" hidden>متوقف</span>
+        <span class="pill mode-chip" id="imamMode" hidden></span>
         <button class="rec-fab" id="btnMic" aria-label="ابدأ الاستماع" title="ابدأ الاستماع">
           <svg id="icoMicStart" viewBox="0 0 24 24" width="26" height="26" fill="currentColor">
             <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/>
@@ -149,29 +154,38 @@
     </div>
   </section>
 
-  <button class="panel-handle" id="panelHandle" title="جمل الخطبة والنص">
-    <span class="ph-arrow">◂</span><span class="ph-label">الخطبة والنص</span>
+  <section class="pub-text only-public" id="pubText" aria-live="polite">
+    <div class="pub-status" id="pubStatus">بانتظار بدء الخطبة…</div>
+    <div class="pub-lines">
+      <p class="pub-prev" id="pubPrev"></p>
+      <p class="pub-prev-tr" id="pubPrevTr"></p>
+      <div class="pub-now" id="pubNow"></div>
+      <p class="pub-tr" id="pubTr" hidden></p>
+    </div>
+    <div class="pub-bar">
+      <span class="pill mode-chip" id="pubMode" hidden></span>
+      <span class="grow"></span>
+      <select class="pill lang-select" id="langSel" aria-label="لغة عرض الخطبة">
+        <option value="ar">العربية</option><option value="en">English</option><option value="fr">Français</option>
+        <option value="ur">اردو</option><option value="id">Bahasa Indonesia</option><option value="tr">Türkçe</option>
+        <option value="bn">বাংলা</option><option value="ms">Melayu</option>
+      </select>
+      <button class="btn btn-gold listen-btn" id="btnListen">🎧 الاستماع المباشر</button>
+    </div>
+  </section>
+
+  <button class="panel-handle only-imam" id="panelHandle" title="كلامك الآن">
+    <span class="ph-arrow">◂</span><span class="ph-label">كلامك الآن</span>
   </button>
-  <aside class="side-panel" id="sidePanel">
+  <aside class="side-panel only-imam" id="sidePanel">
     <div class="panel-body">
-      <section class="panel-sec">
-        <h3>جمل الخطبة المجهّزة</h3>
-        <p class="pane-hint">اضغط جملة ليترجمها المترجم الرقمي — أو استخدم زر الاستماع.</p>
-        <div id="sentenceList" class="sent-list"></div>
-      </section>
-      <section class="panel-sec listen-box" id="paneMic">
-        <h3>الاستماع المباشر</h3>
+      <section class="panel-sec live-words-sec" id="paneMic">
+        <h3>كلامك الآن</h3>
         <div class="vu-track"><div id="vu"></div></div>
-        <div class="mode-toggle" id="micMode">
-          <button data-mode="prepared" class="on">تتبع الخطبة المجهّزة</button>
-          <button data-mode="improvised">مرتجل (آلي)</button>
-        </div>
-        <p class="interim" id="interim"></p>
-        <div id="transcript" class="transcript"></div>
+        <p class="live-words" id="liveWords" data-empty="الميكروفون مفتوح — تكلّم وستظهر كلماتك هنا لحظة نطقها"></p>
+        <!-- kept for the automatic prepared/improvised matching; not shown -->
+        <div hidden><div id="sentenceList" class="sent-list"></div><p class="interim" id="interim"></p><div id="transcript" class="transcript"></div></div>
       </section>
-      <footer class="side-foot">
-        الخدمة متصلة بخادم الفريق؛ عند تعذّر الاتصال يُستخدم الخادم المحلي ثم القاموس التجريبي.
-      </footer>
     </div>
   </aside>
 </main>
@@ -201,6 +215,8 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
 <script src="js/data.js"></script>
+<script src="js/demo-translations.js"></script>
 <script type="module" src="js/live/live.js"></script>
+<script type="module" src="js/live/scan.js"></script>
 </body>
 </html>
